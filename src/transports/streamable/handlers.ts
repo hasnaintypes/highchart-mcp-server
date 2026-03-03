@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
-import { logger } from '../../utils/index.js';
+import { logger, getErrorMessage } from '../../utils/index.js';
 
 export function createRequestHandler(
   transport: StreamableHTTPServerTransport,
@@ -16,7 +16,7 @@ export function createRequestHandler(
 
     if (url === '/mcp') {
       transport.handleRequest(req, res).catch((error: unknown) => {
-        const message = error instanceof Error ? error.message : String(error);
+        const message = getErrorMessage(error);
         logger.error('Error handling MCP request', { error: message });
         if (!res.headersSent) {
           res.writeHead(500, { 'Content-Type': 'application/json' });

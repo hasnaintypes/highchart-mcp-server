@@ -1,5 +1,5 @@
 import { config } from './config/index.js';
-import { logger } from './utils/index.js';
+import { logger, getErrorMessage } from './utils/index.js';
 import { mcpServer } from './server.js';
 import { registerAllTools } from './tools/index.js';
 import { startTransport } from './transports/index.js';
@@ -18,7 +18,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((error: unknown) => {
-  const message = error instanceof Error ? error.message : String(error);
-  logger.error('Fatal error', { error: message });
+  logger.error('Fatal error', { error: getErrorMessage(error) });
   process.exit(1);
 });
