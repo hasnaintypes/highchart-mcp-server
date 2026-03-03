@@ -19,14 +19,15 @@ It acts as an MCP tool suite exposing Highcharts chart generation endpoints that
 1. Features
 2. Architecture
 3. Installation
-4. Usage
-5. Validation System
-6. Production Readiness
-7. AI & LLM Integration
-8. Tooling & Developer Experience
-9. Analytics & Monitoring
-10. Contributing
-11. License
+4. AI Client Integration
+5. Usage
+6. Validation System
+7. Production Readiness
+8. AI & LLM Integration
+9. Tooling & Developer Experience
+10. Analytics & Monitoring
+11. Contributing
+12. License
 
 ---
 
@@ -142,7 +143,69 @@ docker run -p 8080:8080 highcharts-mcp-server
 
 ---
 
-## 4. Usage
+## 4. AI Client Integration
+
+This MCP server works with any MCP-capable AI client. Below are configuration examples for common clients.
+
+### Claude Desktop
+
+Add to your Claude Desktop config file:
+
+- **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
+
+```json
+{
+  "mcpServers": {
+    "highchart-mcp-server": {
+      "command": "node",
+      "args": ["/absolute/path/to/highchart-mcp-server/dist/index.js"],
+      "env": {
+        "TRANSPORT": "stdio",
+        "LOG_LEVEL": "info"
+      }
+    }
+  }
+}
+```
+
+### Cursor / VS Code
+
+Add to `.cursor/mcp.json` or `.vscode/mcp.json` in your project root:
+
+```json
+{
+  "mcpServers": {
+    "highchart-mcp-server": {
+      "command": "node",
+      "args": ["/absolute/path/to/highchart-mcp-server/dist/index.js"],
+      "env": {
+        "TRANSPORT": "stdio",
+        "LOG_LEVEL": "info"
+      }
+    }
+  }
+}
+```
+
+### Streamable HTTP (Network Clients)
+
+For clients that connect over the network, start the server with the HTTP transport:
+
+```bash
+TRANSPORT=streamable-http PORT=3000 node dist/index.js
+```
+
+Then connect your MCP client to `http://localhost:3000/mcp`.
+
+### Available Tools
+
+| Tool | Description |
+|------|-------------|
+| `create_chart` | Generate a Highcharts config from structured input (type, title, series, categories). Best for simple charts with guided parameters. |
+| `render_chart` | Render a chart from a full Highcharts configuration object. Accepts any valid Highcharts options — best for advanced/custom charts. |
+
+---
 
 ### Basic Chart Call
 
@@ -168,7 +231,7 @@ The MCP server validates the input and returns chart data or export artifacts.
 
 ---
 
-## 5. Validation System
+## 6. Validation System
 
 The server uses a **schema validation system**:
 
@@ -180,7 +243,7 @@ Invalid requests return structured responses indicating the validation failures.
 
 ---
 
-## 6. Production Readiness
+## 7. Production Readiness
 
 ### Deployment
 
@@ -204,7 +267,7 @@ Supports deployment in production environments:
 
 ---
 
-## 7. AI & LLM Integration
+## 8. AI & LLM Integration
 
 The server provides AI‑centric features:
 
@@ -216,7 +279,7 @@ These integrations make the server suitable for interactive AI applications and 
 
 ---
 
-## 8. Tooling & Developer Experience
+## 9. Tooling & Developer Experience
 
 ### CLI
 
@@ -237,7 +300,7 @@ An interactive UI to test chart configs and see live output.
 
 ---
 
-## 9. Analytics & Monitoring
+## 10. Analytics & Monitoring
 
 * Prometheus metrics exposed
 * Logs with structured levels
@@ -247,7 +310,7 @@ These help monitor server performance and usage patterns.
 
 ---
 
-## 10. Contributing
+## 11. Contributing
 
 To contribute:
 
@@ -260,7 +323,7 @@ Please follow code style guidelines and include tests for new features.
 
 ---
 
-## 11. License
+## 12. License
 
 Released under the **MIT License**.
 

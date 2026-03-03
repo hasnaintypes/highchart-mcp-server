@@ -278,7 +278,7 @@ Track usage trends, popular tools, and performance metrics over time. This suppo
 
 ### Transport Layer
 
-* **Receives MCP connections** (via STDIO or Streamable HTTP). ([modelcontextprotocol.io][2])
+* **Receives MCP connections** (via STDIO or Streamable HTTP).
 * **Handles message framing** for JSON‑RPC.
 
 ### MCP Server Core

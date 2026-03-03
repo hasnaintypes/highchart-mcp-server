@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "highchart-mcp-server": {
+      "command": "node",
+      "args": ["dist/index.js"],
+      "env": {
+        "TRANSPORT": "stdio",
+        "LOG_LEVEL": "info"
+      }
+    }
+  }
+}
