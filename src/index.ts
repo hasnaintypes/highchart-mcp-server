@@ -1,14 +1,24 @@
-console.log("Hello world! TypeScript is working!");
+import { config } from './config/index.js';
+import { logger } from './utils/index.js';
+import { mcpServer } from './server.js';
+import { registerAllTools } from './tools/index.js';
+import { startTransport } from './transports/index.js';
 
-// Example of TypeScript features
-interface User {
-  name: string;
-  age: number;
+async function main(): Promise<void> {
+  logger.info('Starting Highchart MCP Server', {
+    transport: config.TRANSPORT,
+    nodeEnv: config.NODE_ENV,
+    logLevel: config.LOG_LEVEL,
+  });
+
+  registerAllTools(mcpServer);
+  await startTransport(mcpServer);
+
+  logger.info('Highchart MCP Server started successfully');
 }
 
-const user: User = {
-  name: "TypeScript User",
-  age: 25
-};
-
-console.log(`User: ${user.name}, Age: ${user.age}`);
+main().catch((error: unknown) => {
+  const message = error instanceof Error ? error.message : String(error);
+  logger.error('Fatal error', { error: message });
+  process.exit(1);
+});
