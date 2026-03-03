@@ -39,7 +39,7 @@ Your Highcharts MCP Server acts as the MCP server, providing charting primitives
 Key architectural layers include:
 
 1. **Transport Layer**
-   MCP transports (JSON‑RPC over Streamable HTTP, SSE, or STDIO). ([modelcontextprotocol.io][2])
+   MCP transports (STDIO for local clients, Streamable HTTP for network access). ([modelcontextprotocol.io][2])
 
 2. **Protocol Layer**
    JSON‑RPC messaging and capability negotiation between client and server. ([modelcontextprotocol.io][1])
@@ -73,12 +73,13 @@ Build an MCP server that can reliably generate Highcharts charts with basic tran
 ```
 ┌─────────────────────────────┐
 |      Transport Layer        |
-|  (Streamable HTTP / SSE)    |
+|  STDIO (primary)            |
+|  Streamable HTTP (secondary)|
 ├─────────────────────────────┤
 |      MCP Server Core        |
+|  - McpServer (SDK class)    |
 |  - Capability negotiation   |
 |  - Tool registry            |
-|  - Tool dispatch middleware |
 ├─────────────────────────────┤
 |      Validation Layer       |
 |  - Zod/JSON Schemas         |
@@ -90,14 +91,22 @@ Build an MCP server that can reliably generate Highcharts charts with basic tran
 └─────────────────────────────┘
 ```
 
+### SDK Notes
+
+* Use **`McpServer`** (from `@modelcontextprotocol/sdk/server/mcp.js`), not the lower-level `Server` class.
+* Register tools via **`server.tool()`** — the high-level API on `McpServer`.
+* Use **`InMemoryTransport`** (from `@modelcontextprotocol/sdk/inMemory.js`) for unit/integration testing without real transports.
+
 ### Explanation
 
 #### Transport Layer
 
-Your MCP server will support at least **Streamable HTTP** transport (preferred) and optionally **SSE**. MCP transport abstracts connection details and allows clients to send JSON‑RPC requests to the server. ([modelcontextprotocol.io][2])
+The Phase 1 MCP server supports two transports:
 
-* **Streamable HTTP** — Use HTTP POST for requests with streaming responses for long outputs.
-* **SSE** — Optional backward compatibility for clients not yet using streamable HTTP.
+* **STDIO (primary)** — Zero-config transport via `StdioServerTransport`. Claude Desktop, Cursor, and most MCP clients connect over STDIO. This is the fastest path to a testable server.
+* **Streamable HTTP (secondary)** — Network transport via `StreamableHTTPServerTransport`. Handles both streaming and SSE fallback natively — no standalone SSE transport needed.
+
+> **Note:** The standalone `SSEServerTransport` is deprecated in the SDK. `StreamableHTTPServerTransport` handles SSE fallback internally.
 
 #### MCP Server Core
 
@@ -114,6 +123,18 @@ Schema enforcement is critical to guarantee that chart configurations are correc
 #### Chart Rendering Core
 
 This service uses the Highcharts engine to generate charts based on validated JSON configurations and returns structured outputs (e.g., chart configuration JSON or rendered assets).
+
+### Two-Tier Tool Strategy
+
+Phase 1 tools follow a two-tier approach to balance ease of use with full flexibility:
+
+**Tier 1 — Convenience tools** (`create_chart`)
+Simplified, validated input with a curated schema. The tool builds the full Highcharts configuration internally from high-level parameters (chart type, series data, title, categories). Best for common chart patterns where the AI client doesn't need to know Highcharts internals.
+
+**Tier 2 — Raw passthrough tools** (`render_chart`, planned)
+Accepts a full Highcharts Options object directly. The server validates the structural shape (e.g., `chart`, `series` keys exist) but delegates real validation to Highcharts at render time. Best for advanced use cases where the AI client needs full control over every Highcharts option.
+
+This two-tier design lets simple requests stay simple while preserving escape hatches for power users and advanced AI workflows.
 
 ### Phase 1 Flows
 
@@ -257,7 +278,7 @@ Track usage trends, popular tools, and performance metrics over time. This suppo
 
 ### Transport Layer
 
-* **Receives MCP connections** (via Streamable HTTP or SSE). ([modelcontextprotocol.io][2])
+* **Receives MCP connections** (via STDIO or Streamable HTTP). ([modelcontextprotocol.io][2])
 * **Handles message framing** for JSON‑RPC.
 
 ### MCP Server Core
@@ -311,7 +332,7 @@ Use Docker for environment consistency across development, staging, and producti
 Your Highcharts MCP Server architecture evolves through three phases:
 
 1. **Phase 1 — MVP**
-   Minimal yet functional MCP server with chart generation and basic transport.
+   Minimal yet functional MCP server with chart generation, STDIO + Streamable HTTP transport.
 
 2. **Phase 2 — Scale & Security**
    Production readiness with auth, metrics, monitoring, export formats, and tooling.

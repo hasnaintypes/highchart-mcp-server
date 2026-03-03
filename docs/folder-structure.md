@@ -22,7 +22,7 @@ highchart-mcp-server/
 ├── .env.example
 ├── .env.test
 ├── .gitignore
-├── jest.config.js
+├── vitest.config.ts
 ├── package.json
 ├── tsconfig.json
 └── README.md
@@ -76,9 +76,9 @@ src/
 ├── config/
 ├── transports/
 ├── tools/
+├── types/
 ├── validation/
 ├── services/
-├── middlewares/
 ├── utils/
 ├── index.ts
 └── server.ts
@@ -104,10 +104,13 @@ src/config/
 
 ###  `src/transports/`
 
-Transport implementations for MCP (Streamable HTTP, SSE, STDIO).
+Transport implementations for MCP. Each transport lives in its own subdirectory — the SDK provides complete transport classes, so our files are thin glue with room for transport-specific utilities.
 
 ```
 src/transports/
+├── stdio/
+│   ├── index.ts
+│   └── utils.ts
 ├── streamable/
 │   ├── index.ts
 │   ├── handlers.ts
@@ -115,14 +118,13 @@ src/transports/
 ├── sse/
 │   ├── index.ts
 │   └── utils.ts
-└── stdio/
-    ├── index.ts
-    └── utils.ts
+└── index.ts
 ```
 
-* **streamable/** — Primary modern MCP transport.
-* **sse/** — Optional legacy SSE support.
-* **stdio/** — Local CLI / dev transport.
+* **stdio/** — STDIO transport (primary). Zero-config, used by Claude Desktop, Cursor, and most MCP clients.
+* **streamable/** — Streamable HTTP transport (secondary). Network transport that handles SSE fallback natively. `handlers.ts` contains the HTTP request handler factory (health, `/mcp`, 404 routing).
+* **sse/** — SSE transport scaffold (placeholder). Standalone SSE is deprecated in the SDK — `StreamableHTTPServerTransport` handles SSE fallback internally.
+* **index.ts** — Transport dispatcher that selects and starts the configured transport.
 
 ---
 
@@ -147,6 +149,23 @@ src/tools/
 * **index.ts** — Registers all tools to MCP server.
 
 Best practice is grouping tools by domain (chart, AI, etc.) for clarity and modularity. ([Medium][1])
+
+---
+
+###  `src/types/`
+
+Shared TypeScript type definitions used across the application, organized by domain.
+
+```
+src/types/
+├── chart.ts
+└── index.ts
+```
+
+* **chart.ts** — Chart-related types and Zod schemas (ChartType, SeriesData, CreateChartInput, HighchartsConfig).
+* **index.ts** — Barrel re-export from domain files. All consumers import from this barrel.
+
+Co-locating shared types by domain avoids scattering type definitions across tools, validation, and services.
 
 ---
 
@@ -183,21 +202,6 @@ src/services/
 
 * **chartService.ts** — Implements rendering and export logic.
 * **aiService.ts** — Wraps AI model integration logic (NLP, suggestions).
-
----
-
-###  `src/middlewares/`
-
-Reusable middleware logic (auth, rate limiting).
-
-```
-src/middlewares/
-├── authMiddleware.ts
-└── rateLimit.ts
-```
-
-* **authMiddleware.ts** — API key / JWT validation.
-* **rateLimit.ts** — Protects against request spikes.
 
 ---
 
@@ -253,12 +257,12 @@ Mirroring the `src/` structure inside `tests/` simplifies mapping code coverage 
 .env.example       # Template for environment variables
 .env.test          # CI/test environment variables
 .gitignore
-jest.config.js     # Jest test runner config
+vitest.config.ts   # Vitest test runner config
 tsconfig.json      # TypeScript compiler settings
 ```
 
 * **.env.example** — Template for configuration keys.
-* **jest.config.js** — Test configuration for running various test suites.
+* **vitest.config.ts** — Test configuration using Vitest (native ESM + TypeScript support).
 
 ---
 
@@ -272,15 +276,15 @@ highchart-mcp-server/
 │   ├── config/
 │   ├── transports/
 │   ├── tools/
+│   ├── types/
 │   ├── validation/
 │   ├── services/
-│   ├── middlewares/
 │   └── utils/
 ├── tests/
 ├── .env.example
 ├── .env.test
 ├── .gitignore
-├── jest.config.js
+├── vitest.config.ts
 ├── package.json
 ├── tsconfig.json
 └── README.md

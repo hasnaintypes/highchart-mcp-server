@@ -24,14 +24,16 @@ Deliver a working MCP server that can generate Highcharts charts reliably and in
 
 ### Core Deliverables
 
-1. **Core Chart Generation**
-   Implement fundamental chart rendering capabilities using Highcharts, supporting essential chart types and configurations. These tools should produce valid output formats (e.g., chart JSON or export formats ready for rendering).
+1. **Two-Tier Tool Strategy**
+   Implement chart tools in two tiers:
+   - **Tier 1 — Convenience tools** (`create_chart`): Simplified validated input, builds Highcharts config internally from high-level parameters. Implemented and tested.
+   - **Tier 2 — Raw passthrough tools** (`render_chart`): Accepts a full Highcharts Options object, validates structure, delegates real validation to Highcharts at render time. **Next tool to implement.**
 
 2. **Schema Validation and Error Reporting**
-   Include robust validation of chart configurations at the MCP tool boundary using schema validation (e.g., Zod or JSON Schema). Provide clear, structured errors when inputs are invalid to assist debugging and AI guidance. 
+   Include robust validation of chart configurations at the MCP tool boundary using schema validation (Zod v4). Provide clear, structured errors when inputs are invalid to assist debugging and AI guidance.
 
-3. **Basic MCP Transport (HTTP/SSE)**
-   Support MCP transport protocols suitable for AI clients: HTTP request/response and Server‑Sent Events (SSE) for streaming or progressive updates. This enables AI agents and clients to invoke chart creation tools over the network.
+3. **MCP Transport (STDIO + Streamable HTTP)**
+   Support two MCP transport protocols: **STDIO** as the primary transport for local AI clients (Claude Desktop, Cursor), and **Streamable HTTP** as the secondary network transport. Streamable HTTP handles SSE fallback natively — no standalone SSE transport is needed.
 
 4. **Integration with One AI Client**
    Ensure the MCP server can be discovered and invoked by at least one AI ecosystem (e.g., Claude, ChatGPT, Cursor). This may include providing MCP server descriptors and client configuration examples.
@@ -103,7 +105,7 @@ Develop advanced AI‑centric features that improve the productivity of chart cr
 | ------------------------ | ---------------- | -------------------- | -------------------------- |
 | Chart Generation         | Yes              | Enhanced             | AI‑driven adaptation       |
 | Configuration Validation | Yes              | Enhanced             | AI Auto‑correction         |
-| Transport                | HTTP/SSE         | Scalable             | AI utility transports      |
+| Transport                | STDIO + Streamable HTTP | Scalable       | AI utility transports      |
 | AI Integration           | Basic (1 client) | Expanded support     | Natural language workflows |
 | Security                 | Minimal          | Auth + Rate Limiting | Policy‑driven workflows    |
 | Export                   | Basic            | PNG/SVG/PDF          | Enhanced reporting         |

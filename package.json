@@ -2,7 +2,7 @@
   "name": "highchart-mcp-server",
   "version": "1.0.0",
   "type": "module",
-  "description": "A **Model Context Protocol (MCP) server** designed to generate Highcharts‑based charts and visualizations in a **production‑ready**, **AI‑enhanced**, and **validated** manner. This server can be integrated with any MCP‑capable AI client (such as Claude, ChatGPT, Cursor, Dify, VSCode, etc.) to automate chart generation, validation, and export workflows.",
+  "description": "A Model Context Protocol (MCP) server designed to generate Highcharts‑based charts and visualizations in a **production‑ready**, **AI‑enhanced**, and **validated** manner. This server can be integrated with any MCP‑capable AI client (such as Claude, ChatGPT, Cursor, Dify, VSCode, etc.) to automate chart generation, validation, and export workflows.",
   "main": "dist/index.js",
   "directories": {
     "doc": "docs"
@@ -11,7 +11,8 @@
     "dev": "tsx --watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "author": "Hasnain",
   "license": "ISC",
@@ -25,6 +26,7 @@
   "devDependencies": {
     "@types/node": "^25.1.0",
     "tsx": "^4.21.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^3.1.0"
   }
 }
