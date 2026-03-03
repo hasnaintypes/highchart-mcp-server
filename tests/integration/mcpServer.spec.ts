@@ -256,4 +256,68 @@ describe('MCP Server Integration', () => {
       expect(result.isError).toBe(true);
     });
   });
+
+  describe('Error message quality', () => {
+    it('should mention valid types when create_chart type is invalid', async () => {
+      const result = await client.callTool({
+        name: 'create_chart',
+        arguments: {
+          type: 'invalidtype',
+          series: [{ data: [1, 2, 3] }],
+        },
+      });
+
+      expect(result.isError).toBe(true);
+      const text = (result.content as Array<{ text: string }>)[0]!.text;
+      expect(text).toContain('line');
+      expect(text).toContain('bar');
+      expect(text).toContain('pie');
+    });
+
+    it('should mention "at least one" when create_chart series is empty', async () => {
+      const result = await client.callTool({
+        name: 'create_chart',
+        arguments: {
+          type: 'line',
+          series: [],
+        },
+      });
+
+      expect(result.isError).toBe(true);
+      const text = (result.content as Array<{ text: string }>)[0]!.text;
+      expect(text).toContain('at least one');
+    });
+
+    it('should mention "type" when render_chart chart.type is missing', async () => {
+      const result = await client.callTool({
+        name: 'render_chart',
+        arguments: {
+          chartOptions: {
+            chart: {},
+            series: [{ data: [1, 2, 3] }],
+          },
+        },
+      });
+
+      expect(result.isError).toBe(true);
+      const text = (result.content as Array<{ text: string }>)[0]!.text;
+      expect(text).toContain('type');
+    });
+
+    it('should mention "at least one" when render_chart series is empty', async () => {
+      const result = await client.callTool({
+        name: 'render_chart',
+        arguments: {
+          chartOptions: {
+            chart: { type: 'line' },
+            series: [],
+          },
+        },
+      });
+
+      expect(result.isError).toBe(true);
+      const text = (result.content as Array<{ text: string }>)[0]!.text;
+      expect(text).toContain('at least one');
+    });
+  });
 });

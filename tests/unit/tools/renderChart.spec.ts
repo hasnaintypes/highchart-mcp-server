@@ -143,3 +143,33 @@ describe('RenderChartInputSchema', () => {
     expect(result.success).toBe(false);
   });
 });
+
+describe('RenderChartInputSchema error messages', () => {
+  it('should mention chart.type when type is missing', () => {
+    const result = RenderChartInputSchema.safeParse({
+      chartOptions: {
+        chart: {},
+        series: [{ data: [1] }],
+      },
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0]!.message).toContain('type');
+    }
+  });
+
+  it('should mention "at least one" when series is empty', () => {
+    const result = RenderChartInputSchema.safeParse({
+      chartOptions: {
+        chart: { type: 'line' },
+        series: [],
+      },
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0]!.message).toContain('at least one');
+    }
+  });
+});
