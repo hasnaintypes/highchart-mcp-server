@@ -144,6 +144,64 @@ describe('RenderChartInputSchema', () => {
   });
 });
 
+describe('RenderChartInputSchema format field', () => {
+  it('should default format to svg when omitted', () => {
+    const result = RenderChartInputSchema.safeParse({
+      chartOptions: {
+        chart: { type: 'line' },
+        series: [{ data: [1, 2, 3] }],
+      },
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.format).toBe('svg');
+    }
+  });
+
+  it('should accept explicit png format', () => {
+    const result = RenderChartInputSchema.safeParse({
+      chartOptions: {
+        chart: { type: 'line' },
+        series: [{ data: [1] }],
+      },
+      format: 'png',
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.format).toBe('png');
+    }
+  });
+
+  it('should accept explicit pdf format', () => {
+    const result = RenderChartInputSchema.safeParse({
+      chartOptions: {
+        chart: { type: 'line' },
+        series: [{ data: [1] }],
+      },
+      format: 'pdf',
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.format).toBe('pdf');
+    }
+  });
+
+  it('should reject invalid format', () => {
+    const result = RenderChartInputSchema.safeParse({
+      chartOptions: {
+        chart: { type: 'line' },
+        series: [{ data: [1] }],
+      },
+      format: 'gif',
+    });
+
+    expect(result.success).toBe(false);
+  });
+});
+
 describe('RenderChartInputSchema error messages', () => {
   it('should mention chart.type when type is missing', () => {
     const result = RenderChartInputSchema.safeParse({

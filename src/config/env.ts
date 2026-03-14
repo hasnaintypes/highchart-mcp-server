@@ -1,6 +1,6 @@
 export type TransportType = 'stdio' | 'http';
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
-export type ExportType = 'svg' | 'png';
+export type ExportType = 'svg' | 'png' | 'pdf';
 
 export interface AppConfig {
   readonly PORT: number;
@@ -23,7 +23,7 @@ function parseLogLevel(value: string | undefined): LogLevel {
 }
 
 function parseExportType(value: string | undefined): ExportType {
-  if (value === 'svg' || value === 'png') return value;
+  if (value === 'svg' || value === 'png' || value === 'pdf') return value;
   return 'svg';
 }
 

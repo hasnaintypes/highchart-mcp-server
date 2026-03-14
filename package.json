@@ -20,7 +20,6 @@
     "@modelcontextprotocol/sdk": "^1.25.3",
     "highcharts": "^12.5.0",
     "highcharts-export-server": "^5.0.0",
-    "node-fetch": "^3.3.2",
     "zod": "^4.3.6"
   },
   "devDependencies": {

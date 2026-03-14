@@ -18,3 +18,22 @@ export function errorResult(message: string): CallToolResult {
     isError: true,
   };
 }
+
+export function chartRenderResult(payload: {
+  config: unknown;
+  format: string;
+  data: string;
+}): CallToolResult {
+  return {
+    content: [
+      {
+        type: 'text',
+        text: JSON.stringify(
+          { config: payload.config, format: payload.format, data: payload.data },
+          null,
+          2,
+        ),
+      },
+    ],
+  };
+}

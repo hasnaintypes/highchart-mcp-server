@@ -6,6 +6,10 @@ export {
   CreateChartInputSchema,
   type CreateChartInput,
   type HighchartsConfig,
+  ExportFormatSchema,
+  type ExportFormat,
   RenderChartInputSchema,
   type RenderChartInput,
+  ExportChartInputSchema,
+  type ExportChartInput,
 } from './chart.js';

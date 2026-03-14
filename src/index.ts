@@ -3,6 +3,7 @@ import { logger, getErrorMessage } from './utils/index.js';
 import { mcpServer } from './server.js';
 import { registerAllTools } from './tools/index.js';
 import { startTransport } from './transports/index.js';
+import { initExportService, shutdownExportService } from './services/index.js';
 
 async function main(): Promise<void> {
   logger.info('Starting Highchart MCP Server', {
@@ -11,8 +12,20 @@ async function main(): Promise<void> {
     logLevel: config.LOG_LEVEL,
   });
 
+  await initExportService();
+
   registerAllTools(mcpServer);
   await startTransport(mcpServer);
+
+  process.on('SIGINT', () => {
+    shutdownExportService();
+    process.exit(0);
+  });
+
+  process.on('SIGTERM', () => {
+    shutdownExportService();
+    process.exit(0);
+  });
 
   logger.info('Highchart MCP Server started successfully');
 }

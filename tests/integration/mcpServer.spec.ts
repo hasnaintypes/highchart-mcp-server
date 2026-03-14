@@ -1,8 +1,30 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
-import { registerAllTools } from '../../src/tools/index.js';
+
+// Mock the export service so tests run without Puppeteer
+vi.mock('../../src/services/exportService.js', () => ({
+  initExportService: vi.fn(async () => {}),
+  shutdownExportService: vi.fn(),
+  exportChart: vi.fn(
+    async (
+      chartOptions: Record<string, unknown>,
+      format: string,
+      _overrides?: Record<string, unknown>,
+    ) => ({
+      format,
+      data:
+        format === 'svg'
+          ? '<svg>mock</svg>'
+          : 'bW9ja2Jhc2U2NA==',
+    }),
+  ),
+}));
+
+// Import after mock so tools pick up the mocked exportChart
+const { registerAllTools } = await import('../../src/tools/index.js');
+const { exportChart } = await import('../../src/services/exportService.js');
 
 describe('MCP Server Integration', () => {
   let client: Client;
@@ -50,6 +72,21 @@ describe('MCP Server Integration', () => {
       const renderChart = result.tools.find((t) => t.name === 'render_chart');
       expect(renderChart).toBeDefined();
       expect(renderChart!.inputSchema).toBeDefined();
+    });
+
+    it('should list export_chart tool', async () => {
+      const result = await client.listTools();
+      const toolNames = result.tools.map((t) => t.name);
+      expect(toolNames).toContain('export_chart');
+    });
+
+    it('should list all 3 tools', async () => {
+      const result = await client.listTools();
+      const toolNames = result.tools.map((t) => t.name);
+      expect(toolNames).toEqual(
+        expect.arrayContaining(['create_chart', 'render_chart', 'export_chart']),
+      );
+      expect(result.tools).toHaveLength(3);
     });
   });
 
@@ -137,7 +174,46 @@ describe('MCP Server Integration', () => {
   });
 
   describe('render_chart tool', () => {
-    it('should pass through a full Highcharts config with extras', async () => {
+    it('should return config, format, and data shape', async () => {
+      const chartOptions = {
+        chart: { type: 'line' },
+        series: [{ name: 'Sales', data: [100, 200, 300] }],
+      };
+
+      const result = await client.callTool({
+        name: 'render_chart',
+        arguments: { chartOptions },
+      });
+
+      expect(result.isError).toBeFalsy();
+      const content = result.content as Array<{ type: string; text: string }>;
+      expect(content).toHaveLength(1);
+
+      const parsed = JSON.parse(content[0]!.text);
+      expect(parsed.config).toEqual(chartOptions);
+      expect(parsed.format).toBe('svg');
+      expect(parsed.data).toBe('<svg>mock</svg>');
+    });
+
+    it('should accept explicit png format', async () => {
+      const chartOptions = {
+        chart: { type: 'bar' },
+        series: [{ data: [1, 2, 3] }],
+      };
+
+      const result = await client.callTool({
+        name: 'render_chart',
+        arguments: { chartOptions, format: 'png' },
+      });
+
+      expect(result.isError).toBeFalsy();
+      const content = result.content as Array<{ type: string; text: string }>;
+      const parsed = JSON.parse(content[0]!.text);
+      expect(parsed.format).toBe('png');
+      expect(parsed.data).toBe('bW9ja2Jhc2U2NA==');
+    });
+
+    it('should pass through extra Highcharts options in config', async () => {
       const chartOptions = {
         chart: { type: 'line', zoomType: 'x' },
         title: { text: 'Revenue Trend' },
@@ -157,49 +233,8 @@ describe('MCP Server Integration', () => {
 
       expect(result.isError).toBeFalsy();
       const content = result.content as Array<{ type: string; text: string }>;
-      expect(content).toHaveLength(1);
-      expect(content[0]!.type).toBe('text');
-
-      const config = JSON.parse(content[0]!.text);
-      expect(config).toEqual(chartOptions);
-    });
-
-    it('should pass through a minimal valid config', async () => {
-      const chartOptions = {
-        chart: { type: 'bar' },
-        series: [{ data: [1, 2, 3] }],
-      };
-
-      const result = await client.callTool({
-        name: 'render_chart',
-        arguments: { chartOptions },
-      });
-
-      expect(result.isError).toBeFalsy();
-      const content = result.content as Array<{ type: string; text: string }>;
-      const config = JSON.parse(content[0]!.text);
-      expect(config).toEqual(chartOptions);
-    });
-
-    it('should pass through config with multiple series of different structures', async () => {
-      const chartOptions = {
-        chart: { type: 'column' },
-        series: [
-          { name: 'Sales', data: [10, 20, 30], color: '#ff0000' },
-          { name: 'Profit', data: [5, 15, 25], dashStyle: 'ShortDash' },
-          { type: 'line', data: [7, 17, 27], marker: { symbol: 'circle' } },
-        ],
-      };
-
-      const result = await client.callTool({
-        name: 'render_chart',
-        arguments: { chartOptions },
-      });
-
-      expect(result.isError).toBeFalsy();
-      const content = result.content as Array<{ type: string; text: string }>;
-      const config = JSON.parse(content[0]!.text);
-      expect(config).toEqual(chartOptions);
+      const parsed = JSON.parse(content[0]!.text);
+      expect(parsed.config).toEqual(chartOptions);
     });
 
     it('should reject missing chart key', async () => {
@@ -250,6 +285,116 @@ describe('MCP Server Integration', () => {
             chart: {},
             series: [{ data: [1, 2, 3] }],
           },
+        },
+      });
+
+      expect(result.isError).toBe(true);
+    });
+  });
+
+  describe('export_chart tool', () => {
+    it('should export a chart as svg', async () => {
+      const chartOptions = {
+        chart: { type: 'line' },
+        series: [{ data: [1, 2, 3] }],
+      };
+
+      const result = await client.callTool({
+        name: 'export_chart',
+        arguments: { chartOptions, format: 'svg' },
+      });
+
+      expect(result.isError).toBeFalsy();
+      const content = result.content as Array<{ type: string; text: string }>;
+      const parsed = JSON.parse(content[0]!.text);
+      expect(parsed.config).toEqual(chartOptions);
+      expect(parsed.format).toBe('svg');
+      expect(parsed.data).toBe('<svg>mock</svg>');
+    });
+
+    it('should export a chart as png', async () => {
+      const chartOptions = {
+        chart: { type: 'bar' },
+        series: [{ name: 'Test', data: [10, 20] }],
+      };
+
+      const result = await client.callTool({
+        name: 'export_chart',
+        arguments: { chartOptions, format: 'png' },
+      });
+
+      expect(result.isError).toBeFalsy();
+      const content = result.content as Array<{ type: string; text: string }>;
+      const parsed = JSON.parse(content[0]!.text);
+      expect(parsed.format).toBe('png');
+      expect(parsed.data).toBe('bW9ja2Jhc2U2NA==');
+    });
+
+    it('should pass dimension overrides to exportChart', async () => {
+      const chartOptions = {
+        chart: { type: 'column' },
+        series: [{ data: [5, 10] }],
+      };
+
+      const result = await client.callTool({
+        name: 'export_chart',
+        arguments: {
+          chartOptions,
+          format: 'png',
+          width: 1024,
+          height: 768,
+          scale: 2,
+        },
+      });
+
+      expect(result.isError).toBeFalsy();
+
+      // Verify the mock was called with overrides
+      expect(exportChart).toHaveBeenCalledWith(
+        chartOptions,
+        'png',
+        { width: 1024, height: 768, scale: 2 },
+      );
+    });
+
+    it('should reject missing format', async () => {
+      const result = await client.callTool({
+        name: 'export_chart',
+        arguments: {
+          chartOptions: {
+            chart: { type: 'line' },
+            series: [{ data: [1] }],
+          },
+        },
+      });
+
+      expect(result.isError).toBe(true);
+    });
+
+    it('should reject invalid format', async () => {
+      const result = await client.callTool({
+        name: 'export_chart',
+        arguments: {
+          chartOptions: {
+            chart: { type: 'line' },
+            series: [{ data: [1] }],
+          },
+          format: 'gif',
+        },
+      });
+
+      expect(result.isError).toBe(true);
+    });
+
+    it('should reject empty series', async () => {
+      const result = await client.callTool({
+        name: 'export_chart',
+        arguments: {
+          chartOptions: {
+            chart: { type: 'line' },
+            series: [],
+          },
+          format: 'svg',
         },
       });
 
