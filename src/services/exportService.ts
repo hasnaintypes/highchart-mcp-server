@@ -3,6 +3,7 @@ import type { ExportServerOptions, ExportSettings } from 'highcharts-export-serv
 import type { HcConstructor } from '../charts/types.js';
 import { config } from '../config/index.js';
 import { logger } from '../utils/index.js';
+import { incr, observe, setGauge } from '../metrics/index.js';
 
 export type ExportFormat = 'svg' | 'png' | 'pdf';
 
@@ -43,6 +44,7 @@ export async function initExportService(): Promise<void> {
   await exporter.initExport(settings);
 
   _initialized = true;
+  setGauge('highchart_export_pool_workers', 1, undefined, 'Number of export pool workers.');
   logger.info('Export service initialized', highcharts !== undefined ? { highcharts } : undefined);
 }
 
@@ -50,6 +52,7 @@ export async function shutdownExportService(): Promise<void> {
   if (!_initialized) return;
   await exporter.killPool();
   _initialized = false;
+  setGauge('highchart_export_pool_workers', 0, undefined, 'Number of export pool workers.');
   logger.info('Export service shut down');
 }
 
@@ -73,11 +76,31 @@ export async function exportChart(
     },
   });
 
+  const constr = overrides?.constr ?? 'chart';
+  const start = Date.now();
+
   return new Promise<ExportOutput>((resolve, reject) => {
     exporter.startExport(settings, (error, info) => {
+      const durationSeconds = (Date.now() - start) / 1000;
+      observe(
+        'highchart_export_duration_seconds',
+        durationSeconds,
+        { format },
+        'Chart export duration in seconds by format.',
+      );
       if (error) {
+        incr(
+          'highchart_exports_total',
+          { format, constr, status: 'error' },
+          'Total chart exports by format, constructor and status.',
+        );
         reject(error);
       } else {
+        incr(
+          'highchart_exports_total',
+          { format, constr, status: 'ok' },
+          'Total chart exports by format, constructor and status.',
+        );
         resolve({ format, data: info.result });
       }
     });
