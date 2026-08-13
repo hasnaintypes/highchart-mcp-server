@@ -26,6 +26,10 @@ build/
 .agents/
 .claude/
 
+# Local planning + docs (local-only, not published)
+roadmap-phase-2/
+docs/
+
 # OS generated files
 .DS_Store
 .DS_Store?
