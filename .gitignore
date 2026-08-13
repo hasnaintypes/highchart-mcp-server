@@ -30,6 +30,13 @@ build/
 roadmap-phase-2/
 docs/
 
+# Highcharts export cache + local render output
+.hc-cache/
+.render-samples/
+
+# Puppeteer/Chromium user-data dir created by the export server
+tmp/
+
 # OS generated files
 .DS_Store
 .DS_Store?

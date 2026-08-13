@@ -12,7 +12,9 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "seed:cache": "node scripts/seed-cache.mjs",
+    "render:samples": "node scripts/render-samples.mjs"
   },
   "author": "Hasnain",
   "license": "ISC",
