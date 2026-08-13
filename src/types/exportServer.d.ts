@@ -18,6 +18,7 @@ declare module 'highcharts-export-server' {
     export: {
       type: 'svg' | 'png' | 'pdf';
       options: Record<string, unknown>;
+      constr?: 'chart' | 'stockChart' | 'mapChart' | 'ganttChart';
       width?: number;
       height?: number;
       scale?: number;

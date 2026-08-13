@@ -1,5 +1,6 @@
 import exporter from 'highcharts-export-server';
 import type { ExportSettings } from 'highcharts-export-server';
+import type { HcConstructor } from '../charts/types.js';
 import { logger } from '../utils/index.js';
 
 export type ExportFormat = 'svg' | 'png' | 'pdf';
@@ -13,6 +14,8 @@ export interface ExportOverrides {
   width?: number;
   height?: number;
   scale?: number;
+  /** Highcharts constructor to render with (defaults to 'chart'). */
+  constr?: HcConstructor;
 }
 
 let _initialized = false;
@@ -61,6 +64,7 @@ export async function exportChart(
     export: {
       type: format,
       options: chartOptions,
+      ...(overrides?.constr !== undefined && { constr: overrides.constr }),
       ...(overrides?.width !== undefined && { width: overrides.width }),
       ...(overrides?.height !== undefined && { height: overrides.height }),
       ...(overrides?.scale !== undefined && { scale: overrides.scale }),

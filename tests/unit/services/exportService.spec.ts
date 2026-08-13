@@ -137,5 +137,43 @@ describe('exportService', () => {
         expect.any(Function),
       );
     });
+
+    it('should pass the constr override through to export settings', async () => {
+      mockStartExport.mockImplementation(
+        (_settings: unknown, cb: (error: Error | false, result: { result: string }) => void) => {
+          cb(false, { result: '<svg>ohlc</svg>' });
+        },
+      );
+
+      await initExportService();
+      await exportChart(
+        { chart: { type: 'candlestick' }, series: [{ data: [[1, 2, 3, 4, 5]] }] },
+        'svg',
+        { constr: 'stockChart' },
+      );
+
+      expect(mockStartExport).toHaveBeenCalledWith(
+        expect.objectContaining({
+          export: expect.objectContaining({ constr: 'stockChart' }),
+        }),
+        expect.any(Function),
+      );
+    });
+
+    it('should not set constr when not provided', async () => {
+      mockStartExport.mockImplementation(
+        (_settings: unknown, cb: (error: Error | false, result: { result: string }) => void) => {
+          cb(false, { result: '<svg/>' });
+        },
+      );
+
+      await initExportService();
+      await exportChart({ chart: { type: 'line' }, series: [{ data: [1] }] }, 'svg');
+
+      const settings = mockStartExport.mock.calls[0]?.[0] as {
+        export: Record<string, unknown>;
+      };
+      expect(settings.export).not.toHaveProperty('constr');
+    });
   });
 });
