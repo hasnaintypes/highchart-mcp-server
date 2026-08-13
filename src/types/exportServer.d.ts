@@ -7,6 +7,16 @@ declare module 'highcharts-export-server' {
     logging?: {
       level?: number;
     };
+    highcharts?: {
+      version?: string;
+      cdnURL?: string;
+      cachePath?: string;
+      forceFetch?: boolean;
+      coreScripts?: string[];
+      moduleScripts?: string[];
+      indicatorScripts?: string[];
+      customScripts?: string[];
+    };
     puppeteer?: {
       args?: string[];
     };

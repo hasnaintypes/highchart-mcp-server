@@ -1,6 +1,7 @@
 import exporter from 'highcharts-export-server';
-import type { ExportSettings } from 'highcharts-export-server';
+import type { ExportServerOptions, ExportSettings } from 'highcharts-export-server';
 import type { HcConstructor } from '../charts/types.js';
+import { config } from '../config/index.js';
 import { logger } from '../utils/index.js';
 
 export type ExportFormat = 'svg' | 'png' | 'pdf';
@@ -20,19 +21,29 @@ export interface ExportOverrides {
 
 let _initialized = false;
 
+function buildHighchartsOptions(): ExportServerOptions['highcharts'] | undefined {
+  const hc: NonNullable<ExportServerOptions['highcharts']> = {};
+  if (config.HIGHCHARTS_CDN_URL !== undefined) hc.cdnURL = config.HIGHCHARTS_CDN_URL;
+  if (config.HIGHCHARTS_CACHE_PATH !== undefined) hc.cachePath = config.HIGHCHARTS_CACHE_PATH;
+  if (config.HIGHCHARTS_FORCE_FETCH) hc.forceFetch = true;
+  return Object.keys(hc).length > 0 ? hc : undefined;
+}
+
 export async function initExportService(): Promise<void> {
   if (_initialized) return;
 
+  const highcharts = buildHighchartsOptions();
   const settings = exporter.setOptions({
     pool: { minWorkers: 1, maxWorkers: 1 },
     logging: { level: 1 },
     other: { noLogo: true },
+    ...(highcharts !== undefined && { highcharts }),
   });
 
   await exporter.initExport(settings);
 
   _initialized = true;
-  logger.info('Export service initialized');
+  logger.info('Export service initialized', highcharts !== undefined ? { highcharts } : undefined);
 }
 
 export async function shutdownExportService(): Promise<void> {
