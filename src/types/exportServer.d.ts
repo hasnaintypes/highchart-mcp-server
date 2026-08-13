@@ -10,11 +10,22 @@ declare module 'highcharts-export-server' {
     puppeteer?: {
       args?: string[];
     };
-    listenToProcessExits?: boolean;
-    noLogo?: boolean;
+    other?: {
+      noLogo?: boolean;
+      listenToProcessExits?: boolean;
+    };
+    export?: {
+      type?: 'svg' | 'png' | 'pdf';
+      options?: Record<string, unknown>;
+      constr?: 'chart' | 'stockChart' | 'mapChart' | 'ganttChart';
+      width?: number;
+      height?: number;
+      scale?: number;
+    };
   }
 
-  export interface ExportSettings {
+  /** Merged options returned by `setOptions` and consumed by init/startExport. */
+  export interface ExportSettings extends ExportServerOptions {
     export: {
       type: 'svg' | 'png' | 'pdf';
       options: Record<string, unknown>;
@@ -25,24 +36,26 @@ declare module 'highcharts-export-server' {
     };
   }
 
-  export interface ExportResult {
+  /** Result payload passed to the export callback (`info.result` = base64/SVG). */
+  export interface ExportInfo {
     result: string;
   }
 
   export type ExportCallback = (
-    error: Error | false,
-    result: ExportResult,
+    error: Error | false | null | undefined,
+    info: ExportInfo,
   ) => void;
 
-  function setOptions(options: ExportServerOptions): void;
-  function initExport(callback: (error?: Error) => void): void;
-  function startExport(settings: ExportSettings, callback: ExportCallback): void;
-  function killPool(): void;
+  function setOptions(userOptions?: ExportServerOptions, args?: unknown): ExportSettings;
+  function initExport(options: ExportSettings): Promise<void>;
+  function startExport(settings: ExportSettings, callback: ExportCallback): Promise<void>;
+  function killPool(): Promise<void>;
 
-  export default {
-    setOptions,
-    initExport,
-    startExport,
-    killPool,
+  const exporter: {
+    setOptions: typeof setOptions;
+    initExport: typeof initExport;
+    startExport: typeof startExport;
+    killPool: typeof killPool;
   };
+  export default exporter;
 }

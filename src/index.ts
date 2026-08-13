@@ -17,15 +17,11 @@ async function main(): Promise<void> {
   registerAllTools(mcpServer);
   await startTransport(mcpServer);
 
-  process.on('SIGINT', () => {
-    shutdownExportService();
-    process.exit(0);
-  });
-
-  process.on('SIGTERM', () => {
-    shutdownExportService();
-    process.exit(0);
-  });
+  const shutdown = (): void => {
+    void shutdownExportService().finally(() => process.exit(0));
+  };
+  process.on('SIGINT', shutdown);
+  process.on('SIGTERM', shutdown);
 
   logger.info('Highchart MCP Server started successfully');
 }

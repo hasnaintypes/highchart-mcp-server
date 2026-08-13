@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-const mockSetOptions = vi.fn();
-const mockInitExport = vi.fn((_cb: (error?: Error) => void) => { _cb(); });
+const mockSetOptions = vi.fn((opts: unknown) => opts);
+const mockInitExport = vi.fn(async () => {});
 const mockStartExport = vi.fn();
-const mockKillPool = vi.fn();
+const mockKillPool = vi.fn(async () => {});
 
 vi.mock('highcharts-export-server', () => ({
   default: {
@@ -24,9 +24,9 @@ describe('exportService', () => {
     vi.clearAllMocks();
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     // Reset internal state by shutting down
-    shutdownExportService();
+    await shutdownExportService();
   });
 
   describe('initExportService', () => {
@@ -36,8 +36,8 @@ describe('exportService', () => {
       expect(mockSetOptions).toHaveBeenCalledOnce();
       expect(mockSetOptions).toHaveBeenCalledWith(
         expect.objectContaining({
-          listenToProcessExits: false,
-          noLogo: true,
+          pool: { minWorkers: 1, maxWorkers: 1 },
+          other: expect.objectContaining({ noLogo: true }),
         }),
       );
       expect(mockInitExport).toHaveBeenCalledOnce();
@@ -52,12 +52,12 @@ describe('exportService', () => {
     });
 
     it('should reject when initExport returns an error', async () => {
-      mockInitExport.mockImplementationOnce((cb: (error?: Error) => void) => {
-        cb(new Error('Puppeteer failed'));
+      mockInitExport.mockImplementationOnce(async () => {
+        throw new Error('Puppeteer failed');
       });
 
       // Shut down to reset _initialized for this test
-      shutdownExportService();
+      await shutdownExportService();
 
       await expect(initExportService()).rejects.toThrow('Puppeteer failed');
     });
@@ -66,13 +66,13 @@ describe('exportService', () => {
   describe('shutdownExportService', () => {
     it('should call killPool', async () => {
       await initExportService();
-      shutdownExportService();
+      await shutdownExportService();
 
       expect(mockKillPool).toHaveBeenCalledOnce();
     });
 
-    it('should be a no-op if not initialized', () => {
-      shutdownExportService();
+    it('should be a no-op if not initialized', async () => {
+      await shutdownExportService();
       expect(mockKillPool).not.toHaveBeenCalled();
     });
   });

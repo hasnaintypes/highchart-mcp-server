@@ -23,30 +23,21 @@ let _initialized = false;
 export async function initExportService(): Promise<void> {
   if (_initialized) return;
 
-  exporter.setOptions({
+  const settings = exporter.setOptions({
     pool: { minWorkers: 1, maxWorkers: 1 },
-    logging: { level: 0 },
-    listenToProcessExits: false,
-    noLogo: true,
+    logging: { level: 1 },
+    other: { noLogo: true },
   });
 
-  await new Promise<void>((resolve, reject) => {
-    exporter.initExport((error?: Error) => {
-      if (error) {
-        reject(error);
-      } else {
-        resolve();
-      }
-    });
-  });
+  await exporter.initExport(settings);
 
   _initialized = true;
   logger.info('Export service initialized');
 }
 
-export function shutdownExportService(): void {
+export async function shutdownExportService(): Promise<void> {
   if (!_initialized) return;
-  exporter.killPool();
+  await exporter.killPool();
   _initialized = false;
   logger.info('Export service shut down');
 }
@@ -60,7 +51,7 @@ export async function exportChart(
     throw new Error('Export service not initialized. Call initExportService() first.');
   }
 
-  const settings: ExportSettings = {
+  const settings: ExportSettings = exporter.setOptions({
     export: {
       type: format,
       options: chartOptions,
@@ -69,14 +60,14 @@ export async function exportChart(
       ...(overrides?.height !== undefined && { height: overrides.height }),
       ...(overrides?.scale !== undefined && { scale: overrides.scale }),
     },
-  };
+  });
 
   return new Promise<ExportOutput>((resolve, reject) => {
-    exporter.startExport(settings, (error, result) => {
+    exporter.startExport(settings, (error, info) => {
       if (error) {
         reject(error);
       } else {
-        resolve({ format, data: result.result });
+        resolve({ format, data: info.result });
       }
     });
   });
