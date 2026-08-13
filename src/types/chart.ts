@@ -1,41 +1,23 @@
 import { z } from 'zod/v4';
 
-export const ChartTypeSchema = z.enum(
-  ['line', 'bar', 'column', 'area', 'scatter', 'pie', 'spline', 'areaspline'],
-  { error: 'type must be one of: line, bar, column, area, scatter, pie, spline, areaspline' },
-);
-
-export type ChartType = z.infer<typeof ChartTypeSchema>;
-
-export const SeriesDataSchema = z.object({
-  name: z.string().optional(),
-  data: z.array(z.number({ error: 'series[].data values must be numbers' })),
-});
-
-export type SeriesData = z.infer<typeof SeriesDataSchema>;
-
-export const CreateChartInputSchema = z.object({
-  type: ChartTypeSchema,
-  title: z.string().optional(),
-  xAxisCategories: z.array(z.string()).optional(),
-  series: z.array(SeriesDataSchema).min(1, { error: 'series must contain at least one data series' }),
-});
-
-export type CreateChartInput = z.infer<typeof CreateChartInputSchema>;
-
-export interface HighchartsConfig {
-  chart: { type: string };
-  title: { text: string };
-  xAxis?: { categories: string[] };
-  series: Array<{ name?: string; data: number[] }>;
-}
-
 export const ExportFormatSchema = z.enum(
   ['svg', 'png', 'pdf'],
   { error: 'format must be one of: svg, png, pdf' },
 );
 
 export type ExportFormat = z.infer<typeof ExportFormatSchema>;
+
+/**
+ * Highcharts constructor selector for the raw passthrough tools. Defaults to
+ * `chart`; use `stockChart` for financial/flags, `mapChart` for maps, and
+ * `ganttChart` for gantt.
+ */
+export const ConstructorSchema = z.enum(
+  ['chart', 'stockChart', 'mapChart', 'ganttChart'],
+  { error: 'constr must be one of: chart, stockChart, mapChart, ganttChart' },
+);
+
+export type ConstructorType = z.infer<typeof ConstructorSchema>;
 
 const ChartOptionsSchema = z.object({
   chart: z.object({
@@ -49,6 +31,7 @@ const ChartOptionsSchema = z.object({
 export const RenderChartInputSchema = z.object({
   chartOptions: ChartOptionsSchema,
   format: ExportFormatSchema.optional().default('svg'),
+  constr: ConstructorSchema.optional(),
 });
 
 export type RenderChartInput = z.infer<typeof RenderChartInputSchema>;
@@ -56,6 +39,7 @@ export type RenderChartInput = z.infer<typeof RenderChartInputSchema>;
 export const ExportChartInputSchema = z.object({
   chartOptions: ChartOptionsSchema,
   format: ExportFormatSchema,
+  constr: ConstructorSchema.optional(),
   width: z.number().optional(),
   height: z.number().optional(),
   scale: z.number().optional(),

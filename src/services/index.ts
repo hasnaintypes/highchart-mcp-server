@@ -1,5 +1,4 @@
 // Services barrel — business logic exports
-export { buildHighchartsConfig } from './chartService.js';
 export {
   initExportService,
   shutdownExportService,

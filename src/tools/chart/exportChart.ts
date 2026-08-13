@@ -20,6 +20,7 @@ export function registerExportChartTool(server: McpServer): void {
         args.chartOptions as Record<string, unknown>,
         args.format,
         {
+          ...(args.constr !== undefined && { constr: args.constr }),
           width: args.width,
           height: args.height,
           scale: args.scale,

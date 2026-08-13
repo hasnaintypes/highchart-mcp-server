@@ -16,6 +16,7 @@ export function registerRenderChartTool(server: McpServer): void {
       const result = await exportChart(
         args.chartOptions as Record<string, unknown>,
         args.format,
+        args.constr !== undefined ? { constr: args.constr } : undefined,
       );
       return chartRenderResult({
         config: args.chartOptions,

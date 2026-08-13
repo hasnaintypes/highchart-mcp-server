@@ -80,13 +80,54 @@ describe('MCP Server Integration', () => {
       expect(toolNames).toContain('export_chart');
     });
 
-    it('should list all 3 tools', async () => {
+    it('should list list_chart_types tool', async () => {
+      const result = await client.listTools();
+      const toolNames = result.tools.map((t) => t.name);
+      expect(toolNames).toContain('list_chart_types');
+    });
+
+    it('should list all 4 tools', async () => {
       const result = await client.listTools();
       const toolNames = result.tools.map((t) => t.name);
       expect(toolNames).toEqual(
-        expect.arrayContaining(['create_chart', 'render_chart', 'export_chart']),
+        expect.arrayContaining([
+          'create_chart',
+          'render_chart',
+          'export_chart',
+          'list_chart_types',
+        ]),
       );
-      expect(result.tools).toHaveLength(3);
+      expect(result.tools).toHaveLength(4);
+    });
+  });
+
+  describe('list_chart_types tool', () => {
+    it('should return the full catalog with a total type count', async () => {
+      const result = await client.callTool({
+        name: 'list_chart_types',
+        arguments: {},
+      });
+
+      expect(result.isError).toBeFalsy();
+      const content = result.content as Array<{ type: string; text: string }>;
+      const parsed = JSON.parse(content[0]!.text);
+      expect(parsed.totalTypes).toBe(70);
+      expect(Array.isArray(parsed.families)).toBe(true);
+      expect(parsed.families.length).toBe(parsed.totalFamilies);
+    });
+
+    it('should filter by family', async () => {
+      const result = await client.callTool({
+        name: 'list_chart_types',
+        arguments: { family: 'financial' },
+      });
+
+      const content = result.content as Array<{ type: string; text: string }>;
+      const parsed = JSON.parse(content[0]!.text);
+      expect(parsed.families).toHaveLength(1);
+      expect(parsed.families[0].family).toBe('financial');
+      expect(parsed.families[0].constr).toBe('stockChart');
+      expect(parsed.families[0].types).toContain('candlestick');
     });
   });
 
@@ -107,7 +148,9 @@ describe('MCP Server Integration', () => {
       expect(content).toHaveLength(1);
       expect(content[0]!.type).toBe('text');
 
-      const config = JSON.parse(content[0]!.text);
+      const parsed = JSON.parse(content[0]!.text);
+      expect(parsed.constr).toBe('chart');
+      const config = parsed.options;
       expect(config.chart.type).toBe('line');
       expect(config.title.text).toBe('Sales Over Time');
       expect(config.xAxis.categories).toEqual(['Jan', 'Feb', 'Mar']);
@@ -128,7 +171,7 @@ describe('MCP Server Integration', () => {
 
       expect(result.isError).toBeFalsy();
       const content = result.content as Array<{ type: string; text: string }>;
-      const config = JSON.parse(content[0]!.text);
+      const config = JSON.parse(content[0]!.text).options;
       expect(config.chart.type).toBe('pie');
       expect(config.xAxis).toBeUndefined();
     });
@@ -144,7 +187,7 @@ describe('MCP Server Integration', () => {
 
       expect(result.isError).toBeFalsy();
       const content = result.content as Array<{ type: string; text: string }>;
-      const config = JSON.parse(content[0]!.text);
+      const config = JSON.parse(content[0]!.text).options;
       expect(config.title.text).toBe('');
     });
 

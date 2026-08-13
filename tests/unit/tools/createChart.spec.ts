@@ -1,94 +1,136 @@
 import { describe, it, expect } from 'vitest';
-import { CreateChartInputSchema } from '../../../src/types/index.js';
+import {
+  CreateChartInputSchema,
+  buildFromInput,
+  allChartTypes,
+  type ChartFamilyInput,
+} from '../../../src/charts/index.js';
 
-describe('CreateChartInputSchema', () => {
-  it('should accept valid input', () => {
+describe('CreateChartInputSchema (registry)', () => {
+  it('accepts a valid line chart', () => {
     const result = CreateChartInputSchema.safeParse({
       type: 'line',
       title: 'Test',
       series: [{ name: 'A', data: [1, 2, 3] }],
     });
-
     expect(result.success).toBe(true);
   });
 
-  it('should reject invalid chart type', () => {
+  it('accepts advanced types (heatmap, sankey, candlestick, gauge)', () => {
+    expect(
+      CreateChartInputSchema.safeParse({
+        type: 'heatmap',
+        series: [{ data: [[0, 0, 5]] }],
+      }).success,
+    ).toBe(true);
+
+    expect(
+      CreateChartInputSchema.safeParse({
+        type: 'sankey',
+        series: [{ data: [{ from: 'A', to: 'B', weight: 2 }] }],
+      }).success,
+    ).toBe(true);
+
+    expect(
+      CreateChartInputSchema.safeParse({
+        type: 'candlestick',
+        series: [{ data: [[1, 2, 3, 1, 2]] }],
+      }).success,
+    ).toBe(true);
+
+    expect(
+      CreateChartInputSchema.safeParse({ type: 'gauge', series: [{ data: [80] }] }).success,
+    ).toBe(true);
+  });
+
+  it('rejects an unknown chart type', () => {
     const result = CreateChartInputSchema.safeParse({
-      type: 'heatmap',
+      type: 'definitely-not-a-chart',
       series: [{ data: [1] }],
     });
-
     expect(result.success).toBe(false);
   });
 
-  it('should reject empty series', () => {
-    const result = CreateChartInputSchema.safeParse({
-      type: 'line',
-      series: [],
-    });
-
-    expect(result.success).toBe(false);
-  });
-
-  it('should reject series with non-number data', () => {
-    const result = CreateChartInputSchema.safeParse({
-      type: 'line',
-      series: [{ data: ['a', 'b'] }],
-    });
-
-    expect(result.success).toBe(false);
-  });
-
-  it('should accept input without optional fields', () => {
-    const result = CreateChartInputSchema.safeParse({
-      type: 'bar',
-      series: [{ data: [1] }],
-    });
-
-    expect(result.success).toBe(true);
-    if (result.success) {
-      expect(result.data.title).toBeUndefined();
-      expect(result.data.xAxisCategories).toBeUndefined();
-    }
-  });
-});
-
-describe('CreateChartInputSchema error messages', () => {
-  it('should list valid types when chart type is invalid', () => {
-    const result = CreateChartInputSchema.safeParse({
-      type: 'heatmap',
-      series: [{ data: [1] }],
-    });
-
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error.issues[0]!.message).toContain('line');
-      expect(result.error.issues[0]!.message).toContain('bar');
-      expect(result.error.issues[0]!.message).toContain('pie');
-    }
-  });
-
-  it('should mention "at least one" when series is empty', () => {
-    const result = CreateChartInputSchema.safeParse({
-      type: 'line',
-      series: [],
-    });
-
+  it('rejects empty series for a cartesian type', () => {
+    const result = CreateChartInputSchema.safeParse({ type: 'line', series: [] });
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.issues[0]!.message).toContain('at least one');
     }
   });
 
-  it('should mention data values must be numbers for non-number data', () => {
-    const result = CreateChartInputSchema.safeParse({
-      type: 'line',
-      series: [{ data: ['a', 'b'] }],
-    });
+  it('requires baseData for distribution types', () => {
+    expect(CreateChartInputSchema.safeParse({ type: 'histogram' }).success).toBe(false);
+    expect(
+      CreateChartInputSchema.safeParse({ type: 'histogram', baseData: [1, 2, 3] }).success,
+    ).toBe(true);
+  });
 
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error.issues[0]!.message).toContain('must be numbers');
-    }
+  it('requires tasks for gantt', () => {
+    expect(CreateChartInputSchema.safeParse({ type: 'gantt' }).success).toBe(false);
+    expect(
+      CreateChartInputSchema.safeParse({
+        type: 'gantt',
+        tasks: [{ name: 'A', start: 0, end: 1 }],
+      }).success,
+    ).toBe(true);
+  });
+});
+
+describe('buildFromInput per family', () => {
+  it('cartesian → constr chart with xAxis categories', () => {
+    const built = buildFromInput({
+      type: 'column',
+      xAxisCategories: ['A', 'B'],
+      series: [{ data: [1, 2] }],
+    });
+    expect(built.constr).toBe('chart');
+    expect(built.options['xAxis']).toEqual({ categories: ['A', 'B'] });
+  });
+
+  it('financial → constr stockChart with datetime xAxis', () => {
+    const built = buildFromInput({
+      type: 'candlestick',
+      series: [{ data: [[1, 2, 3, 1, 2]] }],
+    });
+    expect(built.constr).toBe('stockChart');
+    expect(built.options['xAxis']).toEqual({ type: 'datetime' });
+  });
+
+  it('heatmap → adds colorAxis', () => {
+    const built = buildFromInput({ type: 'heatmap', series: [{ data: [[0, 0, 1]] }] });
+    expect(built.options['colorAxis']).toBeDefined();
+  });
+
+  it('maps → constr mapChart', () => {
+    const built = buildFromInput({
+      type: 'map',
+      topology: { type: 'FeatureCollection', features: [] },
+      data: [{ 'hc-key': 'us-ca', value: 1 }],
+    } as ChartFamilyInput);
+    expect(built.constr).toBe('mapChart');
+  });
+
+  it('gantt → constr ganttChart and normalizes ISO dates to ms', () => {
+    const built = buildFromInput({
+      type: 'gantt',
+      tasks: [{ name: 'Design', start: '2024-01-01', end: '2024-01-05' }],
+    } as ChartFamilyInput);
+    expect(built.constr).toBe('ganttChart');
+    const series = built.options['series'] as Array<{ data: Array<{ start: number; end: number }> }>;
+    expect(typeof series[0]!.data[0]!.start).toBe('number');
+  });
+
+  it('distribution → builds base + derived series', () => {
+    const built = buildFromInput({ type: 'histogram', baseData: [1, 2, 3] } as ChartFamilyInput);
+    const series = built.options['series'] as Array<{ id?: string; baseSeries?: string }>;
+    expect(series[0]!.id).toBe('base');
+    expect(series[1]!.baseSeries).toBe('base');
+  });
+});
+
+describe('coverage', () => {
+  it('registers all 70 Highcharts series types', () => {
+    expect(allChartTypes()).toHaveLength(70);
   });
 });
