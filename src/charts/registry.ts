@@ -1,5 +1,5 @@
 import { z } from 'zod/v4';
-import type { BuiltChart, ChartFamily, ChartFamilyInput } from './types.js';
+import type { BuiltChart, ChartFamily, ChartFamilyInput, HcConstructor } from './types.js';
 import { families } from './families/index.js';
 
 /** All registered chart families (source of truth for type coverage). */
@@ -64,4 +64,28 @@ export function buildFromInput(input: ChartFamilyInput): BuiltChart {
     throw new Error(`Unsupported chart type "${input.type}".`);
   }
   return { options: family.build(input), constr: family.constr };
+}
+
+/** One catalog entry per family, for the `list_chart_types` discovery tool. */
+export interface FamilyCatalogEntry {
+  family: string;
+  constr: HcConstructor;
+  types: string[];
+  needsColorAxis: boolean;
+  description: string;
+  dataShapeHint: string;
+  example: unknown;
+}
+
+/** Returns the full chart-type catalog grouped by family. */
+export function chartCatalog(): FamilyCatalogEntry[] {
+  return families.map((f) => ({
+    family: f.id,
+    constr: f.constr,
+    types: [...f.memberTypes],
+    needsColorAxis: f.needsColorAxis ?? false,
+    description: f.description,
+    dataShapeHint: f.dataShapeHint,
+    example: f.example,
+  }));
 }

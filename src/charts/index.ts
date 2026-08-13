@@ -4,5 +4,7 @@ export {
   getFamilyForType,
   allChartTypes,
   buildFromInput,
+  chartCatalog,
+  type FamilyCatalogEntry,
   CreateChartInputSchema,
 } from './registry.js';
