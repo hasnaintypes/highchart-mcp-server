@@ -23,11 +23,31 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Type-check & build
+      - name: Type-check & build (server + CLI)
         run: npm run build
 
-      - name: Test
+      - name: Test (server + CLI)
         run: npm test
+
+      - name: Build & test JS/TS SDK
+        run: |
+          npm run build --workspace @highchart-mcp/sdk
+          npm test --workspace @highchart-mcp/sdk
+
+  python-sdk:
+    name: Python SDK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install + unit test
+        working-directory: packages/sdk-python
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[test]"
+          pytest
 
   docker:
     name: Docker build

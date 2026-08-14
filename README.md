@@ -135,12 +135,47 @@ docker run -p 3000:3000 -e AUTH_STRATEGY=apikey -e API_KEYS=client1:changeme \
 Hosting options, resource guidance, and reverse-proxy/TLS notes are in
 [DEPLOYMENT.md](./DEPLOYMENT.md).
 
+## CLI
+
+The build installs a `highchart-mcp` CLI (bin → `dist/cli/index.js`):
+
+```bash
+highchart-mcp list-types                 # list all types grouped by family
+highchart-mcp list-types --family maps --json
+echo '{"series":[{"data":[1,2,3]}]}' | highchart-mcp create --type line --input -
+highchart-mcp create --type line --input chart.json --format svg --out chart.svg
+highchart-mcp render --input options.json --format png --out chart.png
+highchart-mcp export --input options.json --format pdf --width 1000 --out chart.pdf
+highchart-mcp serve --transport http --port 3000
+```
+
+`render`/`export` require a seeded render cache (`npm run seed:cache`) or network.
+
+## SDKs
+
+In-repo client libraries (npm workspaces under `packages/`):
+
+- **JS/TS:** [`@highchart-mcp/sdk`](./packages/sdk-js/README.md)
+  ```ts
+  import { HighchartClient } from '@highchart-mcp/sdk';
+  const client = await HighchartClient.connectHttp('http://localhost:3000/mcp', { apiKey });
+  const { options } = await client.createChart({ type: 'line', series: [{ data: [1, 2, 3] }] });
+  ```
+- **Python:** [`highchart-mcp-sdk`](./packages/sdk-python/README.md)
+  ```python
+  async with HighchartClient.connect_stdio(command="node", args=["dist/index.js"]) as client:
+      cfg = await client.create_chart(type="line", series=[{"data": [1, 2, 3]}])
+  ```
+
 ## Development
 
 ```bash
 npm run dev    # tsx --watch src/index.ts
-npm run build  # tsc
-npm test       # vitest run
+npm run build  # tsc (server + CLI)
+npm test       # vitest run (server + CLI)
+
+npm run build --workspace @highchart-mcp/sdk   # build the JS/TS SDK
+npm test  --workspace @highchart-mcp/sdk       # test the JS/TS SDK
 ```
 
 ## Licensing
@@ -154,5 +189,5 @@ See [LICENSING.md](./LICENSING.md).
 
 - **Done:** full chart-type coverage, rendering/export, discovery, offline cache,
   metrics/health, HTTP auth + rate limiting, per-session transport, robustness
-  limits, Docker + CI.
-- **Next:** CLI + JS/TS and Python SDKs; optional AI/natural-language features.
+  limits, Docker + CI, **CLI + JS/TS & Python SDKs**.
+- **Next (Phase 3):** optional AI / natural-language features.
