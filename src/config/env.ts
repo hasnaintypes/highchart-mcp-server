@@ -1,5 +1,6 @@
 export type TransportType = 'stdio' | 'http';
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+export type AuthStrategy = 'none' | 'apikey' | 'jwt';
 
 export interface AppConfig {
   readonly PORT: number;
@@ -38,6 +39,24 @@ export interface AppConfig {
   readonly EXPORT_MAX_WORKERS: number;
   /** Max accepted HTTP request body size in bytes for /mcp (default 5_000_000). */
   readonly HTTP_MAX_BODY_BYTES: number;
+  /** Authentication strategy for the HTTP transport (default 'none'). */
+  readonly AUTH_STRATEGY: AuthStrategy;
+  /** Comma-separated API keys ("key" or "id:key:scope1|scope2") for apikey strategy. */
+  readonly API_KEYS: string | undefined;
+  /** HS256 secret for jwt strategy. */
+  readonly JWT_SECRET: string | undefined;
+  /** Expected JWT issuer (optional). */
+  readonly JWT_ISSUER: string | undefined;
+  /** Expected JWT audience (optional). */
+  readonly JWT_AUDIENCE: string | undefined;
+  /** Scopes every authenticated request must hold (comma-separated). */
+  readonly AUTH_REQUIRED_SCOPES: string[];
+  /** Whether to enforce rate limiting on the HTTP transport (default false). */
+  readonly RATE_LIMIT_ENABLED: boolean;
+  /** Sustained requests per minute per client (default 120). */
+  readonly RATE_LIMIT_RPM: number;
+  /** Burst capacity (max tokens) per client (default 20). */
+  readonly RATE_LIMIT_BURST: number;
 }
 
 function parseTransport(value: string | undefined): TransportType {
@@ -82,6 +101,16 @@ function parsePositiveIntDefault(value: string | undefined, fallback: number): n
   return fallback;
 }
 
+function parseAuthStrategy(value: string | undefined): AuthStrategy {
+  if (value === 'apikey' || value === 'jwt' || value === 'none') return value;
+  return 'none';
+}
+
+function parseCsv(value: string | undefined): string[] {
+  if (value === undefined) return [];
+  return value.split(',').map((s) => s.trim()).filter((s) => s.length > 0);
+}
+
 const licenseId = parseOptionalString(process.env['HIGHCHARTS_LICENSE_ID']);
 // Credits attribution may only be removed with a valid license. Without a
 // license id we always keep credits on, regardless of the requested value.
@@ -106,4 +135,13 @@ export const config: AppConfig = Object.freeze({
   EXPORT_TIMEOUT_MS: parsePositiveIntDefault(process.env['EXPORT_TIMEOUT_MS'], 30000),
   EXPORT_MAX_WORKERS: parsePositiveIntDefault(process.env['EXPORT_MAX_WORKERS'], 2),
   HTTP_MAX_BODY_BYTES: parsePositiveIntDefault(process.env['HTTP_MAX_BODY_BYTES'], 5_000_000),
+  AUTH_STRATEGY: parseAuthStrategy(process.env['AUTH_STRATEGY']),
+  API_KEYS: parseOptionalString(process.env['API_KEYS']),
+  JWT_SECRET: parseOptionalString(process.env['JWT_SECRET']),
+  JWT_ISSUER: parseOptionalString(process.env['JWT_ISSUER']),
+  JWT_AUDIENCE: parseOptionalString(process.env['JWT_AUDIENCE']),
+  AUTH_REQUIRED_SCOPES: parseCsv(process.env['AUTH_REQUIRED_SCOPES']),
+  RATE_LIMIT_ENABLED: parseBoolean(process.env['RATE_LIMIT_ENABLED']),
+  RATE_LIMIT_RPM: parsePositiveIntDefault(process.env['RATE_LIMIT_RPM'], 120),
+  RATE_LIMIT_BURST: parsePositiveIntDefault(process.env['RATE_LIMIT_BURST'], 20),
 });

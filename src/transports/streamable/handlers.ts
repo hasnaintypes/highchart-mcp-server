@@ -2,62 +2,136 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { logger, getErrorMessage } from '../../utils/index.js';
 import { config } from '../../config/index.js';
-import { renderProm, uptimeSeconds } from '../../metrics/index.js';
+import { renderProm, uptimeSeconds, incr } from '../../metrics/index.js';
+import { createAuthenticator, authenticateRequest, AuthError } from '../../auth/index.js';
+import { createRateLimiter, type RateLimiter } from '../../middleware/rateLimit.js';
+import type { AuthContext } from '../../auth/index.js';
+
+function clientKey(req: IncomingMessage, ctx: AuthContext): string {
+  if (ctx.subject !== undefined) return `sub:${ctx.subject}`;
+  const fwd = req.headers['x-forwarded-for'];
+  const ip = typeof fwd === 'string' ? fwd.split(',')[0]!.trim() : req.socket.remoteAddress;
+  return `ip:${ip ?? 'unknown'}`;
+}
+
+function sendJson(res: ServerResponse, status: number, body: unknown, headers: Record<string, string> = {}): void {
+  res.writeHead(status, { 'Content-Type': 'application/json', ...headers });
+  res.end(JSON.stringify(body));
+}
 
 export function createRequestHandler(
   transport: StreamableHTTPServerTransport,
 ): (req: IncomingMessage, res: ServerResponse) => void {
+  // Built once from config (fail fast on misconfiguration, e.g. jwt w/o secret).
+  const authenticator = createAuthenticator();
+  const limiter: RateLimiter | undefined = config.RATE_LIMIT_ENABLED
+    ? createRateLimiter(config.RATE_LIMIT_RPM, config.RATE_LIMIT_BURST)
+    : undefined;
+
   return (req, res) => {
     const url = req.url ?? '/';
 
+    // Health is always open (no auth, no rate limit).
     if (url === '/health' && req.method === 'GET') {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(
-        JSON.stringify({
-          status: 'ok',
-          version: config.SERVER_VERSION,
-          uptimeSeconds: Math.round(uptimeSeconds()),
-        }),
-      );
-      return;
-    }
-
-    if (url === '/metrics' && req.method === 'GET') {
-      if (!config.METRICS_ENABLED) {
-        res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Metrics disabled' }));
-        return;
-      }
-      res.writeHead(200, { 'Content-Type': 'text/plain; version=0.0.4; charset=utf-8' });
-      res.end(renderProm());
-      return;
-    }
-
-    if (url === '/mcp') {
-      // Reject over-large payloads early (best-effort via Content-Length).
-      const contentLength = Number(req.headers['content-length'] ?? 0);
-      if (Number.isFinite(contentLength) && contentLength > config.HTTP_MAX_BODY_BYTES) {
-        logger.warn('Rejected oversized MCP request', {
-          contentLength,
-          limit: config.HTTP_MAX_BODY_BYTES,
-        });
-        res.writeHead(413, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Payload too large' }));
-        return;
-      }
-
-      transport.handleRequest(req, res).catch((error: unknown) => {
-        const message = getErrorMessage(error);
-        logger.error('Error handling MCP request', { error: message });
-        if (!res.headersSent) {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Internal server error' }));
-        }
+      sendJson(res, 200, {
+        status: 'ok',
+        version: config.SERVER_VERSION,
+        uptimeSeconds: Math.round(uptimeSeconds()),
       });
       return;
     }
 
-    res.writeHead(404, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'Not found' }));
+    void handleProtected(req, res, url, transport, authenticator, limiter).catch((error: unknown) => {
+      const message = getErrorMessage(error);
+      logger.error('Unhandled request error', { error: message });
+      if (!res.headersSent) sendJson(res, 500, { error: 'Internal server error' });
+    });
   };
+}
+
+async function handleProtected(
+  req: IncomingMessage,
+  res: ServerResponse,
+  url: string,
+  transport: StreamableHTTPServerTransport,
+  authenticator: ReturnType<typeof createAuthenticator>,
+  limiter: RateLimiter | undefined,
+): Promise<void> {
+  // --- /metrics (auth unless METRICS_PUBLIC; never rate limited) ---
+  if (url === '/metrics' && req.method === 'GET') {
+    if (!config.METRICS_ENABLED) {
+      sendJson(res, 404, { error: 'Metrics disabled' });
+      return;
+    }
+    if (!config.METRICS_PUBLIC && authenticator.strategy !== 'none') {
+      try {
+        await authenticateRequest(authenticator, req);
+      } catch (error) {
+        respondAuthError(res, error);
+        return;
+      }
+    }
+    res.writeHead(200, { 'Content-Type': 'text/plain; version=0.0.4; charset=utf-8' });
+    res.end(renderProm());
+    return;
+  }
+
+  // --- /mcp (body limit -> auth -> rate limit -> handle) ---
+  if (url === '/mcp') {
+    const contentLength = Number(req.headers['content-length'] ?? 0);
+    if (Number.isFinite(contentLength) && contentLength > config.HTTP_MAX_BODY_BYTES) {
+      logger.warn('Rejected oversized MCP request', {
+        contentLength,
+        limit: config.HTTP_MAX_BODY_BYTES,
+      });
+      sendJson(res, 413, { error: 'Payload too large' });
+      return;
+    }
+
+    let ctx: AuthContext;
+    try {
+      ctx = await authenticateRequest(authenticator, req);
+    } catch (error) {
+      respondAuthError(res, error);
+      return;
+    }
+
+    if (limiter !== undefined) {
+      const result = limiter.check(clientKey(req, ctx));
+      if (!result.allowed) {
+        incr('highchart_rate_limited_total', undefined, 'Total requests rejected by rate limiting.');
+        sendJson(
+          res,
+          429,
+          { error: 'Too many requests' },
+          {
+            'Retry-After': String(result.retryAfterSeconds),
+            'RateLimit-Remaining': String(result.remaining),
+          },
+        );
+        return;
+      }
+    }
+
+    await transport.handleRequest(req, res).catch((error: unknown) => {
+      const message = getErrorMessage(error);
+      logger.error('Error handling MCP request', { error: message });
+      if (!res.headersSent) sendJson(res, 500, { error: 'Internal server error' });
+    });
+    return;
+  }
+
+  sendJson(res, 404, { error: 'Not found' });
+}
+
+function respondAuthError(res: ServerResponse, error: unknown): void {
+  if (error instanceof AuthError) {
+    incr('highchart_auth_failures_total', { status: String(error.status) }, 'Total authentication/authorization failures.');
+    const headers: Record<string, string> = {};
+    if (error.wwwAuthenticate !== undefined) headers['WWW-Authenticate'] = error.wwwAuthenticate;
+    sendJson(res, error.status, { error: error.message }, headers);
+    return;
+  }
+  logger.error('Auth error', { error: getErrorMessage(error) });
+  sendJson(res, 500, { error: 'Internal server error' });
 }
