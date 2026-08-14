@@ -37,6 +37,13 @@ docs/
 # Puppeteer/Chromium user-data dir created by the export server
 tmp/
 
+# Python (sdk-python)
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+.venv/
+
 # OS generated files
 .DS_Store
 .DS_Store?
