@@ -39,6 +39,8 @@ export interface AppConfig {
   readonly EXPORT_MAX_WORKERS: number;
   /** Max accepted HTTP request body size in bytes for /mcp (default 5_000_000). */
   readonly HTTP_MAX_BODY_BYTES: number;
+  /** Max concurrent MCP HTTP sessions before new ones are rejected (default 100). */
+  readonly HTTP_MAX_SESSIONS: number;
   /** Authentication strategy for the HTTP transport (default 'none'). */
   readonly AUTH_STRATEGY: AuthStrategy;
   /** Comma-separated API keys ("key" or "id:key:scope1|scope2") for apikey strategy. */
@@ -135,6 +137,7 @@ export const config: AppConfig = Object.freeze({
   EXPORT_TIMEOUT_MS: parsePositiveIntDefault(process.env['EXPORT_TIMEOUT_MS'], 30000),
   EXPORT_MAX_WORKERS: parsePositiveIntDefault(process.env['EXPORT_MAX_WORKERS'], 2),
   HTTP_MAX_BODY_BYTES: parsePositiveIntDefault(process.env['HTTP_MAX_BODY_BYTES'], 5_000_000),
+  HTTP_MAX_SESSIONS: parsePositiveIntDefault(process.env['HTTP_MAX_SESSIONS'], 100),
   AUTH_STRATEGY: parseAuthStrategy(process.env['AUTH_STRATEGY']),
   API_KEYS: parseOptionalString(process.env['API_KEYS']),
   JWT_SECRET: parseOptionalString(process.env['JWT_SECRET']),

@@ -1,7 +1,6 @@
 import { config } from './config/index.js';
 import { logger, getErrorMessage } from './utils/index.js';
-import { mcpServer } from './server.js';
-import { registerAllTools } from './tools/index.js';
+import { createMcpServer } from './server.js';
 import { startTransport } from './transports/index.js';
 import { initExportService, shutdownExportService } from './services/index.js';
 import { snapshot } from './metrics/index.js';
@@ -15,8 +14,7 @@ async function main(): Promise<void> {
 
   await initExportService();
 
-  registerAllTools(mcpServer);
-  await startTransport(mcpServer);
+  await startTransport(createMcpServer);
 
   let metricsTimer: NodeJS.Timeout | undefined;
   if (config.METRICS_ENABLED && config.METRICS_LOG_INTERVAL_MS > 0) {

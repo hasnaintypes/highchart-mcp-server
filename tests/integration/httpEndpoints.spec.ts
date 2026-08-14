@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import type { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { createRequestHandler } from '../../src/transports/streamable/handlers.js';
+import type { SessionManager } from '../../src/transports/streamable/sessionManager.js';
 import { incr } from '../../src/metrics/index.js';
 
 interface MockRes {
@@ -29,9 +29,13 @@ function mockRes(): MockRes {
   return res;
 }
 
-// The health/metrics routes never touch the transport.
-const dummyTransport = {} as StreamableHTTPServerTransport;
-const handler = createRequestHandler(dummyTransport);
+// The health/metrics routes and the 413 guard never reach the session manager.
+const dummySessions: SessionManager = {
+  handle: async () => {},
+  closeAll: async () => {},
+  count: () => 0,
+};
+const handler = createRequestHandler(dummySessions);
 
 function call(url: string, method = 'GET', headers: Record<string, string> = {}): MockRes {
   const res = mockRes();

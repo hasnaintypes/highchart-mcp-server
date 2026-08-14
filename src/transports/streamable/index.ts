@@ -1,20 +1,13 @@
 import { createServer } from 'node:http';
-import { randomUUID } from 'node:crypto';
-import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
-import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import type { ServerFactory } from '../index.js';
 import { config } from '../../config/index.js';
 import { logger } from '../../utils/index.js';
 import { createRequestHandler } from './handlers.js';
+import { createSessionManager } from './sessionManager.js';
 
-export async function startHttpTransport(server: McpServer): Promise<void> {
-  const transport = new StreamableHTTPServerTransport({
-    sessionIdGenerator: () => randomUUID(),
-  });
-
-  const httpServer = createServer(createRequestHandler(transport));
-
-  await server.connect(transport);
-  logger.info('Streamable HTTP transport connected');
+export async function startHttpTransport(createMcpServer: ServerFactory): Promise<void> {
+  const sessions = createSessionManager(createMcpServer);
+  const httpServer = createServer(createRequestHandler(sessions));
 
   await new Promise<void>((resolve) => {
     httpServer.listen(config.PORT, () => {
@@ -22,4 +15,10 @@ export async function startHttpTransport(server: McpServer): Promise<void> {
       resolve();
     });
   });
+
+  const closeHttp = (): void => {
+    void sessions.closeAll().finally(() => httpServer.close());
+  };
+  process.on('SIGINT', closeHttp);
+  process.on('SIGTERM', closeHttp);
 }

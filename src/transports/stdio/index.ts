@@ -1,8 +1,9 @@
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import type { ServerFactory } from '../index.js';
 import { logger } from '../../utils/index.js';
 
-export async function startStdioTransport(server: McpServer): Promise<void> {
+export async function startStdioTransport(createServer: ServerFactory): Promise<void> {
+  const server = createServer();
   const transport = new StdioServerTransport();
   logger.info('Starting STDIO transport');
   await server.connect(transport);

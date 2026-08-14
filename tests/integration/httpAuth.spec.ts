@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import type { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import type { SessionManager } from '../../src/transports/streamable/sessionManager.js';
 
 // Configure auth + rate limiting BEFORE importing the handler (config is frozen
 // at load). Vitest isolates modules per file.
@@ -42,16 +42,18 @@ function mockRes(): MockRes {
   return res;
 }
 
-// Fake transport that always succeeds, so we can exercise auth + rate limiting
-// without a real MCP session.
-const fakeTransport = {
-  async handleRequest(_req: IncomingMessage, res: ServerResponse): Promise<void> {
+// Fake session manager that always succeeds, so we can exercise auth + rate
+// limiting without a real MCP session.
+const fakeSessions: SessionManager = {
+  async handle(_req: IncomingMessage, res: ServerResponse): Promise<void> {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ ok: true }));
   },
-} as unknown as StreamableHTTPServerTransport;
+  async closeAll(): Promise<void> {},
+  count: () => 0,
+};
 
-const handler = createRequestHandler(fakeTransport);
+const handler = createRequestHandler(fakeSessions);
 
 function call(url: string, method: string, headers: Record<string, string> = {}): Promise<MockRes> {
   const res = mockRes();

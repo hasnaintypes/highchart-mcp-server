@@ -1,11 +1,11 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import type { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { logger, getErrorMessage } from '../../utils/index.js';
 import { config } from '../../config/index.js';
 import { renderProm, uptimeSeconds, incr } from '../../metrics/index.js';
 import { createAuthenticator, authenticateRequest, AuthError } from '../../auth/index.js';
 import { createRateLimiter, type RateLimiter } from '../../middleware/rateLimit.js';
 import type { AuthContext } from '../../auth/index.js';
+import type { SessionManager } from './sessionManager.js';
 
 function clientKey(req: IncomingMessage, ctx: AuthContext): string {
   if (ctx.subject !== undefined) return `sub:${ctx.subject}`;
@@ -20,7 +20,7 @@ function sendJson(res: ServerResponse, status: number, body: unknown, headers: R
 }
 
 export function createRequestHandler(
-  transport: StreamableHTTPServerTransport,
+  sessions: SessionManager,
 ): (req: IncomingMessage, res: ServerResponse) => void {
   // Built once from config (fail fast on misconfiguration, e.g. jwt w/o secret).
   const authenticator = createAuthenticator();
@@ -29,7 +29,7 @@ export function createRequestHandler(
     : undefined;
 
   return (req, res) => {
-    const url = req.url ?? '/';
+    const url = (req.url ?? '/').split('?')[0]!;
 
     // Health is always open (no auth, no rate limit).
     if (url === '/health' && req.method === 'GET') {
@@ -41,7 +41,7 @@ export function createRequestHandler(
       return;
     }
 
-    void handleProtected(req, res, url, transport, authenticator, limiter).catch((error: unknown) => {
+    void handleProtected(req, res, url, sessions, authenticator, limiter).catch((error: unknown) => {
       const message = getErrorMessage(error);
       logger.error('Unhandled request error', { error: message });
       if (!res.headersSent) sendJson(res, 500, { error: 'Internal server error' });
@@ -53,7 +53,7 @@ async function handleProtected(
   req: IncomingMessage,
   res: ServerResponse,
   url: string,
-  transport: StreamableHTTPServerTransport,
+  sessions: SessionManager,
   authenticator: ReturnType<typeof createAuthenticator>,
   limiter: RateLimiter | undefined,
 ): Promise<void> {
@@ -113,7 +113,7 @@ async function handleProtected(
       }
     }
 
-    await transport.handleRequest(req, res).catch((error: unknown) => {
+    await sessions.handle(req, res).catch((error: unknown) => {
       const message = getErrorMessage(error);
       logger.error('Error handling MCP request', { error: message });
       if (!res.headersSent) sendJson(res, 500, { error: 'Internal server error' });
