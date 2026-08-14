@@ -20,6 +20,18 @@ export interface AppConfig {
   readonly METRICS_PUBLIC: boolean;
   /** Interval (ms) for logging a metrics snapshot on STDIO; 0 disables (default 0). */
   readonly METRICS_LOG_INTERVAL_MS: number;
+  /**
+   * Highcharts license id/attestation held by the operator. Recorded for audit
+   * and required (must be non-empty) before chart credits can be disabled.
+   * A valid Highcharts license is legally required for commercial/production use.
+   */
+  readonly HIGHCHARTS_LICENSE_ID: string | undefined;
+  /**
+   * Whether the "Highcharts.com" credits attribution is shown on charts.
+   * Defaults to `true` (attribution kept — compliant without a license).
+   * Can only be set to `false` when a HIGHCHARTS_LICENSE_ID is provided.
+   */
+  readonly HIGHCHARTS_CREDITS_ENABLED: boolean;
 }
 
 function parseTransport(value: string | undefined): TransportType {
@@ -58,6 +70,12 @@ function parseNonNegativeInt(value: string | undefined): number {
   return 0;
 }
 
+const licenseId = parseOptionalString(process.env['HIGHCHARTS_LICENSE_ID']);
+// Credits attribution may only be removed with a valid license. Without a
+// license id we always keep credits on, regardless of the requested value.
+const creditsRequested = parseBooleanDefaultTrue(process.env['HIGHCHARTS_CREDITS_ENABLED']);
+const creditsEnabled = licenseId === undefined ? true : creditsRequested;
+
 export const config: AppConfig = Object.freeze({
   PORT: parsePort(process.env['PORT']),
   NODE_ENV: process.env['NODE_ENV'] ?? 'development',
@@ -71,4 +89,6 @@ export const config: AppConfig = Object.freeze({
   METRICS_ENABLED: parseBooleanDefaultTrue(process.env['METRICS_ENABLED']),
   METRICS_PUBLIC: parseBoolean(process.env['METRICS_PUBLIC']),
   METRICS_LOG_INTERVAL_MS: parseNonNegativeInt(process.env['METRICS_LOG_INTERVAL_MS']),
+  HIGHCHARTS_LICENSE_ID: licenseId,
+  HIGHCHARTS_CREDITS_ENABLED: creditsEnabled,
 });

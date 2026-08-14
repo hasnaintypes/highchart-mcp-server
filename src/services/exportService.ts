@@ -46,6 +46,33 @@ export async function initExportService(): Promise<void> {
   _initialized = true;
   setGauge('highchart_export_pool_workers', 1, undefined, 'Number of export pool workers.');
   logger.info('Export service initialized', highcharts !== undefined ? { highcharts } : undefined);
+
+  // Highcharts licensing notice. Attribution is kept on by default (free /
+  // non-commercial use). Commercial/production use requires a Highcharts license.
+  if (config.HIGHCHARTS_LICENSE_ID !== undefined) {
+    logger.info('Highcharts license configured', {
+      licenseId: config.HIGHCHARTS_LICENSE_ID,
+      creditsEnabled: config.HIGHCHARTS_CREDITS_ENABLED,
+    });
+  } else {
+    logger.info(
+      'Highcharts credits attribution enabled (free/non-commercial use). ' +
+        'Set HIGHCHARTS_LICENSE_ID for licensed/commercial use to allow disabling credits.',
+    );
+  }
+}
+
+/**
+ * Applies the configured credits attribution to a chart's options unless the
+ * caller already specified `credits`. Keeping credits on satisfies the free /
+ * non-commercial Highcharts license; removing them requires a valid license
+ * (gated by HIGHCHARTS_LICENSE_ID in config).
+ */
+function applyCredits(chartOptions: Record<string, unknown>): Record<string, unknown> {
+  if (Object.prototype.hasOwnProperty.call(chartOptions, 'credits')) {
+    return chartOptions;
+  }
+  return { ...chartOptions, credits: { enabled: config.HIGHCHARTS_CREDITS_ENABLED } };
 }
 
 export async function shutdownExportService(): Promise<void> {
@@ -68,7 +95,7 @@ export async function exportChart(
   const settings: ExportSettings = exporter.setOptions({
     export: {
       type: format,
-      options: chartOptions,
+      options: applyCredits(chartOptions),
       ...(overrides?.constr !== undefined && { constr: overrides.constr }),
       ...(overrides?.width !== undefined && { width: overrides.width }),
       ...(overrides?.height !== undefined && { height: overrides.height }),
