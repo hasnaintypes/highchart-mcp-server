@@ -1,0 +1,31 @@
+services:
+  highchart-mcp:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: highchart-mcp-server:latest
+    container_name: highchart-mcp
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      TRANSPORT: http
+      PORT: "3000"
+      LOG_LEVEL: info
+      # --- Security (recommended for any network exposure) ---
+      # AUTH_STRATEGY: apikey
+      # API_KEYS: client1:change-me:charts:render
+      # RATE_LIMIT_ENABLED: "true"
+      # RATE_LIMIT_RPM: "120"
+      # RATE_LIMIT_BURST: "20"
+      # --- Highcharts licensing (commercial use) ---
+      # HIGHCHARTS_LICENSE_ID: "your-license-id"
+      # HIGHCHARTS_CREDITS_ENABLED: "false"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    # Chromium works best with a larger /dev/shm; --disable-dev-shm-usage also set.
+    shm_size: "512m"

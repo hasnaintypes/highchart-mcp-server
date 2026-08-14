@@ -39,6 +39,7 @@ export async function initExportService(): Promise<void> {
     pool: { minWorkers: 1, maxWorkers: maxWorkers },
     logging: { level: 1 },
     other: { noLogo: true },
+    ...(config.PUPPETEER_ARGS.length > 0 && { puppeteer: { args: config.PUPPETEER_ARGS } }),
     ...(highcharts !== undefined && { highcharts }),
   });
 

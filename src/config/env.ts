@@ -37,6 +37,8 @@ export interface AppConfig {
   readonly EXPORT_TIMEOUT_MS: number;
   /** Number of export pool workers (concurrent renders); default 2. */
   readonly EXPORT_MAX_WORKERS: number;
+  /** Extra Chromium args for Puppeteer (comma-separated), e.g. --no-sandbox in containers. */
+  readonly PUPPETEER_ARGS: string[];
   /** Max accepted HTTP request body size in bytes for /mcp (default 5_000_000). */
   readonly HTTP_MAX_BODY_BYTES: number;
   /** Max concurrent MCP HTTP sessions before new ones are rejected (default 100). */
@@ -136,6 +138,7 @@ export const config: AppConfig = Object.freeze({
   HIGHCHARTS_CREDITS_ENABLED: creditsEnabled,
   EXPORT_TIMEOUT_MS: parsePositiveIntDefault(process.env['EXPORT_TIMEOUT_MS'], 30000),
   EXPORT_MAX_WORKERS: parsePositiveIntDefault(process.env['EXPORT_MAX_WORKERS'], 2),
+  PUPPETEER_ARGS: parseCsv(process.env['PUPPETEER_ARGS']),
   HTTP_MAX_BODY_BYTES: parsePositiveIntDefault(process.env['HTTP_MAX_BODY_BYTES'], 5_000_000),
   HTTP_MAX_SESSIONS: parsePositiveIntDefault(process.env['HTTP_MAX_SESSIONS'], 100),
   AUTH_STRATEGY: parseAuthStrategy(process.env['AUTH_STRATEGY']),
