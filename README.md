@@ -1,158 +1,59 @@
 # Highcharts MCP Server
 
-A **Model Context Protocol (MCP) server** designed to generate Highcharts‑based charts and visualizations in a **production‑ready**, **AI‑enhanced**, and **validated** manner. This server can be integrated with any MCP‑capable AI client (such as Claude, ChatGPT, Cursor, Dify, VSCode, etc.) to automate chart generation, validation, and export workflows.
+A **Model Context Protocol (MCP)** server that turns structured input or raw
+Highcharts options into validated chart configurations and rendered images
+(SVG / PNG / PDF). It works with any MCP-capable client (Claude Desktop, Cursor,
+VS Code, etc.) over **STDIO** or **Streamable HTTP**.
 
-## Overview
+> **Status:** actively developed. Chart generation, rendering/export, discovery,
+> metrics, auth + rate limiting (HTTP), and Docker packaging are implemented and
+> tested. CLI/SDKs are on the roadmap (not yet available).
 
-The Highcharts MCP Server provides:
+## Features
 
-* Chart generation for **all common Highcharts types**
-* **Schema validation** of chart configurations
-* **Production grade features** for scalability, security, and monitoring
-* **AI‑assisted functionality**, such as natural language chart generation
-* CLI and SDK tooling for developers
+- **All 70 Highcharts 12.x series types** — cartesian, pie/funnel, bubble,
+  financial (candlestick/OHLC, `stockChart`), heatmap/tilemap, treemap/sunburst,
+  sankey/networkgraph/organization, gauges, boxplot/statistical, xrange/timeline,
+  **maps** (`mapChart`), and **gantt** (`ganttChart`).
+- **Two-tier tools** — a guided `create_chart` plus raw passthrough
+  `render_chart` / `export_chart` for full Highcharts control.
+- **Discovery** — `list_chart_types` returns every type grouped by family with
+  data-shape hints and examples.
+- **Rendering** to SVG / PNG / PDF via `highcharts-export-server` (headless
+  Chromium), with the correct constructor selected automatically.
+- **Zod v4 validation** with clear, per-type error messages.
+- **Production hardening** — export timeouts, configurable worker pool, request
+  body limits, and per-session HTTP transport management.
+- **Security (HTTP)** — API-key or HS256-JWT auth with scopes, and token-bucket
+  rate limiting.
+- **Observability** — `GET /health` and Prometheus `GET /metrics`.
+- **Docker image** that bakes the Highcharts script cache offline (no CDN needed
+  at runtime).
 
-It acts as an MCP tool suite exposing Highcharts chart generation endpoints that can be invoked by AI assistants or custom clients.
+## Tools
 
-## Table of Contents
+| Tool | Purpose |
+| --- | --- |
+| `create_chart` | Build a Highcharts config from structured input for any supported type. Returns `{ constr, options }`, or a rendered image when `format` is given. |
+| `render_chart` | Render a full Highcharts options object (any type). Returns config + rendered output. |
+| `export_chart` | Like `render_chart` with `format` (svg/png/pdf) plus `width`/`height`/`scale` and `constr` overrides. |
+| `list_chart_types` | List every supported chart type grouped by family, with data shapes and examples. |
 
-1. Features
-2. Architecture
-3. Installation
-4. AI Client Integration
-5. Usage
-6. Validation System
-7. Production Readiness
-8. AI & LLM Integration
-9. Tooling & Developer Experience
-10. Analytics & Monitoring
-11. Contributing
-12. License
+## Install
 
----
-
-## 1. Features
-
-### Core Chart Capabilities
-
-The MCP server supports generating charts using Highcharts configurations:
-
-* Line, Column, Bar
-* Area, Scatter, Pie
-* Gauge, Treemap, Heatmap
-* Financial charts (OHLC, Candlestick)
-* Specialized chart types (Sankey, Network, Timeline)
-* Export to **PNG, SVG, PDF**, and interactive HTML bundles
-  (Concepts based on MCP chart servers and Highcharts Node export support)([highcharts.com][2])
-
-### Schema Validation
-
-All incoming chart configuration requests are validated against **JSON schema or Zod schemas**:
-
-* Type enforcement for chart options
-* Validation of data arrays, axis definitions, series structure
-* Detailed and structured error responses on invalid configs
-  (Validation approach inspired by existing MCP chart servers)([GitHub][3])
-
-### Production‑Grade Reliability
-
-* **Scalable deployment** via Docker, Kubernetes
-* Multi‑transport support: HTTP(S), SSE, Streamable HTTP, STDIO
-* Health check endpoints
-* High availability and load balancing
-* Configurable caching and rate limits
-
-### Security & Access Control
-
-* API key, OAuth2, and JWT authentication
-* RBAC (Role‑based access control)
-* Rate limiting and quotas
-* Audit logging for compliance
-
-### AI & LLM Enhancements
-
-* **Natural language to chart config translation**
-* Chart type suggestions based on dataset or analytics question
-* Auto‑correction of invalid configs using AI
-* Integration hooks for LLM workflows
-
-### Export & Output
-
-* Static and interactive chart outputs
-* Batch and scheduled export capabilities
-* Link generation for shareable chart assets
-
-### Monitoring & Observability
-
-* Prometheus / Grafana integration
-* Structured logging
-* Performance metrics
-* Error reporting dashboards
-
-### Tooling & SDKs
-
-* CLI tooling for quick local operations
-* JavaScript and Python SDKs
-* Interactive schema documentation
-* Playground UI for testing configurations
-
----
-
-## 2. Architecture
-
-The server consists of:
-
-* **Transport layer** — Handles different MCP transports (HTTP/SSE, streamable, STDIO)
-* **Schema validation layer** — Ensures chart configs are correct
-* **Chart renderer** — Uses Highcharts engine (Node export or server rendering)
-* **AI processing layer** — Optional natural language preprocessing
-* **Output services** — Export and sharing
-
-The server uses a modular structure to isolate responsibilities and enable plug‑ins/extensions.
-
----
-
-## 3. Installation
-
-### Prerequisites
-
-* Node.js 18+
-* Docker (optional)
-* Kubernetes (optional)
-
-### Local Setup
-
-Clone the repository:
+Requires **Node.js 20+**.
 
 ```bash
-git clone https://your-repo-url
-cd highcharts-mcp-server
-npm install
+npm ci
 npm run build
 npm start
 ```
 
-### Docker
+## Usage
 
-Build the Docker image:
+### Local (STDIO) — desktop AI clients
 
-```bash
-docker build -t highcharts-mcp-server .
-docker run -p 8080:8080 highcharts-mcp-server
-```
-
----
-
-## 4. AI Client Integration
-
-This MCP server works with any MCP-capable AI client. Below are configuration examples for common clients.
-
-### Claude Desktop
-
-Add to your Claude Desktop config file:
-
-- **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
-- **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
+`mcp.json` (or Claude Desktop / Cursor config):
 
 ```json
 {
@@ -160,170 +61,98 @@ Add to your Claude Desktop config file:
     "highchart-mcp-server": {
       "command": "node",
       "args": ["/absolute/path/to/highchart-mcp-server/dist/index.js"],
-      "env": {
-        "TRANSPORT": "stdio",
-        "LOG_LEVEL": "info"
-      }
+      "env": { "TRANSPORT": "stdio", "LOG_LEVEL": "info" }
     }
   }
 }
 ```
 
-### Cursor / VS Code
-
-Add to `.cursor/mcp.json` or `.vscode/mcp.json` in your project root:
-
-```json
-{
-  "mcpServers": {
-    "highchart-mcp-server": {
-      "command": "node",
-      "args": ["/absolute/path/to/highchart-mcp-server/dist/index.js"],
-      "env": {
-        "TRANSPORT": "stdio",
-        "LOG_LEVEL": "info"
-      }
-    }
-  }
-}
-```
-
-### Streamable HTTP (Network Clients)
-
-For clients that connect over the network, start the server with the HTTP transport:
+### Networked (Streamable HTTP)
 
 ```bash
-TRANSPORT=streamable-http PORT=3000 node dist/index.js
+TRANSPORT=http PORT=3000 node dist/index.js
+# MCP endpoint: POST http://localhost:3000/mcp
+# Health:       GET  http://localhost:3000/health
+# Metrics:      GET  http://localhost:3000/metrics
 ```
 
-Then connect your MCP client to `http://localhost:3000/mcp`.
+Enable auth + rate limiting for any network exposure (see below).
 
-### Available Tools
-
-| Tool | Description |
-|------|-------------|
-| `create_chart` | Generate a Highcharts config from structured input (type, title, series, categories). Best for simple charts with guided parameters. |
-| `render_chart` | Render a chart from a full Highcharts configuration object. Accepts any valid Highcharts options — best for advanced/custom charts. |
-
----
-
-### Basic Chart Call
-
-Chart generation is done by invoking MCP tools with chart config objects. For example:
+### Example: `create_chart`
 
 ```json
 {
-  "tool": "create_chart",
-  "input": {
-    "type": "line",
-    "data": {
-      "categories": ["Jan", "Feb", "Mar"],
-      "series": [
-        {"name": "Sales", "data": [10, 15, 20]}
-      ]
-    },
-    "options": {}
-  }
+  "type": "line",
+  "title": "Monthly Sales",
+  "xAxisCategories": ["Jan", "Feb", "Mar"],
+  "series": [{ "name": "Revenue", "data": [10, 20, 15] }]
 }
 ```
 
-The MCP server validates the input and returns chart data or export artifacts.
+Call `list_chart_types` to discover the expected data shape for any type
+(e.g. financial `[x, open, high, low, close]`, heatmap `[x, y, value]`,
+sankey `{ from, to, weight }`, gantt `tasks[]`, maps `topology` + `data`).
 
----
+## Rendering (offline)
 
-## 6. Validation System
+Rendering uses `highcharts-export-server` (headless Chromium), which fetches
+Highcharts scripts from a CDN on first run and caches them. To work offline, the
+scripts are sourced from the installed `highcharts` package:
 
-The server uses a **schema validation system**:
+```bash
+npm run seed:cache      # populate the cache from the local package (no network)
+npm run render:samples  # render one SVG per constructor to .render-samples/
+```
 
-* Zod or JSON Schema definitions for each chart type
-* Shared utility schemas for common entities (axis, series, color)
-* Error objects with detailed messages
+The Docker image bakes this cache at build time. See [DEPLOYMENT.md](./DEPLOYMENT.md).
 
-Invalid requests return structured responses indicating the validation failures.
+## Configuration
 
----
+All configuration is via environment variables — see [`.env.example`](./.env.example).
+Highlights:
 
-## 7. Production Readiness
+| Area | Variables |
+| --- | --- |
+| Transport | `TRANSPORT` (`stdio`/`http`), `PORT`, `LOG_LEVEL` |
+| Rendering | `EXPORT_TIMEOUT_MS`, `EXPORT_MAX_WORKERS`, `PUPPETEER_ARGS`, `HIGHCHARTS_CDN_URL`, `HIGHCHARTS_CACHE_PATH` |
+| HTTP limits | `HTTP_MAX_BODY_BYTES`, `HTTP_MAX_SESSIONS` |
+| Auth | `AUTH_STRATEGY` (`none`/`apikey`/`jwt`), `API_KEYS`, `JWT_SECRET`, `JWT_ISSUER`, `JWT_AUDIENCE`, `AUTH_REQUIRED_SCOPES` |
+| Rate limit | `RATE_LIMIT_ENABLED`, `RATE_LIMIT_RPM`, `RATE_LIMIT_BURST` |
+| Metrics | `METRICS_ENABLED`, `METRICS_PUBLIC`, `METRICS_LOG_INTERVAL_MS` |
+| Licensing | `HIGHCHARTS_LICENSE_ID`, `HIGHCHARTS_CREDITS_ENABLED` (see [LICENSING.md](./LICENSING.md)) |
 
-### Deployment
+## Deployment
 
-Supports deployment in production environments:
+Docker:
 
-* Containerized deployment with Docker
-* Kubernetes configuration with health probes
-* Environment variable configuration
+```bash
+docker build -f docker/Dockerfile -t highchart-mcp-server .
+docker run -p 3000:3000 -e AUTH_STRATEGY=apikey -e API_KEYS=client1:changeme \
+  --shm-size=512m highchart-mcp-server
+# or: docker compose -f docker/docker-compose.yml up --build
+```
 
-### Security
+Hosting options, resource guidance, and reverse-proxy/TLS notes are in
+[DEPLOYMENT.md](./DEPLOYMENT.md).
 
-* Configurable auth providers
-* TLS/HTTPS enforcement
-* Audit logs
+## Development
 
-### Scalability
+```bash
+npm run dev    # tsx --watch src/index.ts
+npm run build  # tsc
+npm test       # vitest run
+```
 
-* Stateless MCP server instances
-* Horizontal autoscaling
-* Caching for repeated chart requests
+## Licensing
 
----
+This wrapper is under the license in `package.json`. **Highcharts itself is
+proprietary**: free for non-commercial use with the credit attribution kept on
+(the default here), and requires a paid license for commercial/production use.
+See [LICENSING.md](./LICENSING.md).
 
-## 8. AI & LLM Integration
+## Roadmap
 
-The server provides AI‑centric features:
-
-* **Natural language parser** — Converts descriptions to chart configs
-* **Suggestions API** — Suggests chart types and options
-* **Error correction API** — Uses AI to fix configs
-
-These integrations make the server suitable for interactive AI applications and assistants.
-
----
-
-## 9. Tooling & Developer Experience
-
-### CLI
-
-Provides commands for:
-
-* Validating chart configs
-* Exporting charts locally
-* Testing chart output
-
-### SDKs
-
-* JavaScript SDK for client integrations
-* Python SDK for backend integrations
-
-### Playground
-
-An interactive UI to test chart configs and see live output.
-
----
-
-## 10. Analytics & Monitoring
-
-* Prometheus metrics exposed
-* Logs with structured levels
-* Dashboard templates for Grafana
-
-These help monitor server performance and usage patterns.
-
----
-
-## 11. Contributing
-
-To contribute:
-
-1. Fork the repository
-2. Create a feature branch
-3. Add tests and documentation
-4. Submit a pull request
-
-Please follow code style guidelines and include tests for new features.
-
----
-
-## 12. License
-
-Released under the **MIT License**.
-
+- **Done:** full chart-type coverage, rendering/export, discovery, offline cache,
+  metrics/health, HTTP auth + rate limiting, per-session transport, robustness
+  limits, Docker + CI.
+- **Next:** CLI + JS/TS and Python SDKs; optional AI/natural-language features.
