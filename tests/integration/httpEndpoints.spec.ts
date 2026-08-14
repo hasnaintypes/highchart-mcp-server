@@ -33,9 +33,9 @@ function mockRes(): MockRes {
 const dummyTransport = {} as StreamableHTTPServerTransport;
 const handler = createRequestHandler(dummyTransport);
 
-function call(url: string, method = 'GET'): MockRes {
+function call(url: string, method = 'GET', headers: Record<string, string> = {}): MockRes {
   const res = mockRes();
-  handler({ url, method } as IncomingMessage, res as unknown as ServerResponse);
+  handler({ url, method, headers } as unknown as IncomingMessage, res as unknown as ServerResponse);
   return res;
 }
 
@@ -61,5 +61,11 @@ describe('HTTP endpoints', () => {
   it('unknown route returns 404', () => {
     const res = call('/nope');
     expect(res.status).toBe(404);
+  });
+
+  it('POST /mcp with oversized Content-Length returns 413', () => {
+    const res = call('/mcp', 'POST', { 'content-length': String(50_000_000) });
+    expect(res.status).toBe(413);
+    expect(JSON.parse(res.body ?? '{}').error).toBe('Payload too large');
   });
 });

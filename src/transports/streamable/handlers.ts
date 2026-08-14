@@ -34,6 +34,18 @@ export function createRequestHandler(
     }
 
     if (url === '/mcp') {
+      // Reject over-large payloads early (best-effort via Content-Length).
+      const contentLength = Number(req.headers['content-length'] ?? 0);
+      if (Number.isFinite(contentLength) && contentLength > config.HTTP_MAX_BODY_BYTES) {
+        logger.warn('Rejected oversized MCP request', {
+          contentLength,
+          limit: config.HTTP_MAX_BODY_BYTES,
+        });
+        res.writeHead(413, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Payload too large' }));
+        return;
+      }
+
       transport.handleRequest(req, res).catch((error: unknown) => {
         const message = getErrorMessage(error);
         logger.error('Error handling MCP request', { error: message });

@@ -36,7 +36,7 @@ describe('exportService', () => {
       expect(mockSetOptions).toHaveBeenCalledOnce();
       expect(mockSetOptions).toHaveBeenCalledWith(
         expect.objectContaining({
-          pool: { minWorkers: 1, maxWorkers: 1 },
+          pool: { minWorkers: 1, maxWorkers: 2 },
           other: expect.objectContaining({ noLogo: true }),
         }),
       );
@@ -174,6 +174,20 @@ describe('exportService', () => {
         export: Record<string, unknown>;
       };
       expect(settings.export).not.toHaveProperty('constr');
+    });
+
+    it('should reject with a timeout error if the export never completes', async () => {
+      vi.useFakeTimers();
+      // startExport never invokes its callback → should hit the timeout.
+      mockStartExport.mockImplementation(() => {});
+
+      await initExportService();
+      const promise = exportChart({ chart: { type: 'line' }, series: [{ data: [1] }] }, 'svg');
+      const assertion = expect(promise).rejects.toThrow(/timed out/);
+
+      await vi.advanceTimersByTimeAsync(31000);
+      await assertion;
+      vi.useRealTimers();
     });
   });
 });

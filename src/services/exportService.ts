@@ -34,8 +34,9 @@ export async function initExportService(): Promise<void> {
   if (_initialized) return;
 
   const highcharts = buildHighchartsOptions();
+  const maxWorkers = config.EXPORT_MAX_WORKERS;
   const settings = exporter.setOptions({
-    pool: { minWorkers: 1, maxWorkers: 1 },
+    pool: { minWorkers: 1, maxWorkers: maxWorkers },
     logging: { level: 1 },
     other: { noLogo: true },
     ...(highcharts !== undefined && { highcharts }),
@@ -44,7 +45,7 @@ export async function initExportService(): Promise<void> {
   await exporter.initExport(settings);
 
   _initialized = true;
-  setGauge('highchart_export_pool_workers', 1, undefined, 'Number of export pool workers.');
+  setGauge('highchart_export_pool_workers', maxWorkers, undefined, 'Number of export pool workers.');
   logger.info('Export service initialized', highcharts !== undefined ? { highcharts } : undefined);
 
   // Highcharts licensing notice. Attribution is kept on by default (free /
@@ -105,9 +106,27 @@ export async function exportChart(
 
   const constr = overrides?.constr ?? 'chart';
   const start = Date.now();
+  const timeoutMs = config.EXPORT_TIMEOUT_MS;
 
   return new Promise<ExportOutput>((resolve, reject) => {
+    let settled = false;
+
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      incr(
+        'highchart_exports_total',
+        { format, constr, status: 'timeout' },
+        'Total chart exports by format, constructor and status.',
+      );
+      reject(new Error(`Chart export timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+
     exporter.startExport(settings, (error, info) => {
+      if (settled) return; // already timed out
+      settled = true;
+      clearTimeout(timer);
+
       const durationSeconds = (Date.now() - start) / 1000;
       observe(
         'highchart_export_duration_seconds',

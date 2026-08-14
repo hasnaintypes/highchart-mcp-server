@@ -32,6 +32,12 @@ export interface AppConfig {
    * Can only be set to `false` when a HIGHCHARTS_LICENSE_ID is provided.
    */
   readonly HIGHCHARTS_CREDITS_ENABLED: boolean;
+  /** Max time (ms) a single chart export may take before it is aborted (default 30000). */
+  readonly EXPORT_TIMEOUT_MS: number;
+  /** Number of export pool workers (concurrent renders); default 2. */
+  readonly EXPORT_MAX_WORKERS: number;
+  /** Max accepted HTTP request body size in bytes for /mcp (default 5_000_000). */
+  readonly HTTP_MAX_BODY_BYTES: number;
 }
 
 function parseTransport(value: string | undefined): TransportType {
@@ -70,6 +76,12 @@ function parseNonNegativeInt(value: string | undefined): number {
   return 0;
 }
 
+function parsePositiveIntDefault(value: string | undefined, fallback: number): number {
+  const parsed = Number(value);
+  if (Number.isFinite(parsed) && parsed > 0) return Math.floor(parsed);
+  return fallback;
+}
+
 const licenseId = parseOptionalString(process.env['HIGHCHARTS_LICENSE_ID']);
 // Credits attribution may only be removed with a valid license. Without a
 // license id we always keep credits on, regardless of the requested value.
@@ -91,4 +103,7 @@ export const config: AppConfig = Object.freeze({
   METRICS_LOG_INTERVAL_MS: parseNonNegativeInt(process.env['METRICS_LOG_INTERVAL_MS']),
   HIGHCHARTS_LICENSE_ID: licenseId,
   HIGHCHARTS_CREDITS_ENABLED: creditsEnabled,
+  EXPORT_TIMEOUT_MS: parsePositiveIntDefault(process.env['EXPORT_TIMEOUT_MS'], 30000),
+  EXPORT_MAX_WORKERS: parsePositiveIntDefault(process.env['EXPORT_MAX_WORKERS'], 2),
+  HTTP_MAX_BODY_BYTES: parsePositiveIntDefault(process.env['HTTP_MAX_BODY_BYTES'], 5_000_000),
 });
