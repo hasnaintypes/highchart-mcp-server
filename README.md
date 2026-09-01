@@ -7,7 +7,15 @@ VS Code, etc.) over **STDIO** or **Streamable HTTP**.
 
 > **Status:** actively developed. Chart generation, rendering/export, discovery,
 > metrics, auth + rate limiting (HTTP), and Docker packaging are implemented and
-> tested. CLI/SDKs are on the roadmap (not yet available).
+> tested. The server/CLI and both SDKs are published (see [Packages](#packages)).
+
+## Packages
+
+| Package | Registry | Install |
+| --- | --- | --- |
+| [`highchart-mcp-server`](https://www.npmjs.com/package/highchart-mcp-server) | npm | `npm install -g highchart-mcp-server` (provides the `highchart-mcp` CLI + server) |
+| [`@highchart-mcp/sdk`](https://www.npmjs.com/package/@highchart-mcp/sdk) | npm | `npm install @highchart-mcp/sdk` |
+| [`highchart-mcp-sdk`](https://pypi.org/project/highchart-mcp-sdk/) | PyPI | `pip install highchart-mcp-sdk` |
 
 ## Features
 
@@ -42,6 +50,15 @@ VS Code, etc.) over **STDIO** or **Streamable HTTP**.
 ## Install
 
 Requires **Node.js 20+**.
+
+**From npm** (published package — no clone needed):
+
+```bash
+npm install -g highchart-mcp-server
+highchart-mcp serve --transport stdio   # or: highchart-mcp serve --transport http --port 3000
+```
+
+**From source** (for development or Docker packaging):
 
 ```bash
 npm ci
@@ -153,15 +170,21 @@ highchart-mcp serve --transport http --port 3000
 
 ## SDKs
 
-In-repo client libraries (npm workspaces under `packages/`):
+Published client libraries (source in `packages/`, in-repo npm workspaces):
 
-- **JS/TS:** [`@highchart-mcp/sdk`](./packages/sdk-js/README.md)
+- **JS/TS:** [`@highchart-mcp/sdk`](https://www.npmjs.com/package/@highchart-mcp/sdk) ([source](./packages/sdk-js/README.md))
+  ```bash
+  npm install @highchart-mcp/sdk
+  ```
   ```ts
   import { HighchartClient } from '@highchart-mcp/sdk';
   const client = await HighchartClient.connectHttp('http://localhost:3000/mcp', { apiKey });
   const { options } = await client.createChart({ type: 'line', series: [{ data: [1, 2, 3] }] });
   ```
-- **Python:** [`highchart-mcp-sdk`](./packages/sdk-python/README.md)
+- **Python:** [`highchart-mcp-sdk`](https://pypi.org/project/highchart-mcp-sdk/) ([source](./packages/sdk-python/README.md))
+  ```bash
+  pip install highchart-mcp-sdk
+  ```
   ```python
   async with HighchartClient.connect_stdio(command="node", args=["dist/index.js"]) as client:
       cfg = await client.create_chart(type="line", series=[{"data": [1, 2, 3]}])
@@ -177,6 +200,52 @@ npm test       # vitest run (server + CLI)
 npm run build --workspace @highchart-mcp/sdk   # build the JS/TS SDK
 npm test  --workspace @highchart-mcp/sdk       # test the JS/TS SDK
 ```
+
+## Versioning & Publishing
+
+All three published packages are versioned independently with
+[semver](https://semver.org/), each in its own `package.json` /
+`pyproject.toml`:
+
+| Package | Version file |
+| --- | --- |
+| `highchart-mcp-server` | [`package.json`](./package.json) |
+| `@highchart-mcp/sdk` | [`packages/sdk-js/package.json`](./packages/sdk-js/package.json) |
+| `highchart-mcp-sdk` | [`packages/sdk-python/pyproject.toml`](./packages/sdk-python/pyproject.toml) |
+
+**Rule: bump the version of every package you change before publishing —
+never publish the same version twice.** Patch (`x.y.Z`) for fixes, minor
+(`x.Y.0`) for backwards-compatible features/additions, major (`X.0.0`) for
+breaking changes. A change to `src/**` bumps `highchart-mcp-server`; a change
+to `packages/sdk-js/**` bumps `@highchart-mcp/sdk`; a change to
+`packages/sdk-python/**` bumps `highchart-mcp-sdk`. Shared/cross-cutting
+changes (e.g. a protocol change affecting the tools) bump all affected
+packages together.
+
+To publish a new version:
+
+```bash
+# 1. Bump the version(s) that changed, build, and test.
+npm version <patch|minor|major> --no-git-tag-version        # root package
+npm version <patch|minor|major> --no-git-tag-version -w @highchart-mcp/sdk
+# packages/sdk-python/pyproject.toml: bump `version = "..."` by hand
+
+npm run build && npm test
+npm run build -w @highchart-mcp/sdk && npm test -w @highchart-mcp/sdk
+
+# 2. Publish (npm requires an OTP if 2FA is enabled).
+npm publish --otp=<code>
+npm publish -w @highchart-mcp/sdk --otp=<code>
+
+# 3. Publish the Python SDK.
+cd packages/sdk-python
+rm -rf dist && python -m build
+twine check dist/*
+twine upload dist/*   # __token__ / a PyPI API token
+```
+
+Commit the version bump(s) (e.g. `chore(release): highchart-mcp-server@1.1.0`)
+alongside or right after the code change that motivated them.
 
 ## Licensing
 

@@ -5,7 +5,7 @@ Async Python client for the [Highcharts MCP server](../../README.md).
 ## Install
 
 ```bash
-pip install highchart-mcp-sdk        # (not yet published)
+pip install highchart-mcp-sdk
 # from source:
 pip install -e packages/sdk-python
 ```

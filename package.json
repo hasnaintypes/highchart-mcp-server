@@ -7,6 +7,9 @@
   "bin": {
     "highchart-mcp": "dist/cli/index.js"
   },
+  "files": [
+    "dist"
+  ],
   "workspaces": [
     "packages/*"
   ],

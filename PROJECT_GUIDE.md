@@ -362,7 +362,7 @@ server internals). Tool errors throw `HighchartToolError`. Own `tsc`/`vitest`.
 Async `HighchartClient.connect_stdio(...)` / `connect_http(...)` context managers
 over the official `mcp` client; mirrored methods. **`mcp` is lazy-imported** so the
 package imports/unit-tests offline. hatchling packaging; pytest (+ opt-in e2e via
-`RUN_PY_E2E`). Not published.
+`RUN_PY_E2E`). Published on PyPI as `highchart-mcp-sdk`.
 
 ---
 
@@ -444,15 +444,20 @@ scheduled/batch exports.
 
 **Hardening/ops backlog:** shared-store rate limiting; RS256/JWKS/OAuth; MCP
 `image` content type for rendered output; DNS-rebinding/allowed-origins hardening;
-publishing pipelines (npm `@highchart-mcp/sdk`, PyPI `highchart-mcp-sdk`);
+automated publishing (currently manual — see README § Versioning & Publishing);
 coverage thresholds; structured/user-friendly validation errors.
+
+**Published:** `highchart-mcp-server` + `@highchart-mcp/sdk` on npm,
+`highchart-mcp-sdk` on PyPI. Each is versioned independently (semver) — bump the
+version of any package you change before publishing; see README § Versioning
+& Publishing for the exact commands.
 
 **Questions worth resolving before Phase 3:**
 - Which AI provider/model for NL charting, and where does inference run (in-server
   tool vs. client-side)?
 - Do we introduce persistence (chart history, templates)? If so, what store?
 - Multi-tenant model: API keys per tenant + quotas? shared rate-limit store?
-- Publish cadence/versioning for the SDKs and the server image.
+- Automate publishing (CI-triggered on version bump / tag)?
 
 ---
 
