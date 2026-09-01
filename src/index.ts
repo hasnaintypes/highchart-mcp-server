@@ -1,5 +1,5 @@
 import { config } from './config/index.js';
-import { logger, getErrorMessage } from './utils/index.js';
+import { logger, getErrorDetails } from './utils/index.js';
 import { createMcpServer } from './server.js';
 import { startTransport } from './transports/index.js';
 import { initExportService, shutdownExportService } from './services/index.js';
@@ -35,6 +35,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((error: unknown) => {
-  logger.error('Fatal error', { error: getErrorMessage(error) });
+  logger.error('Fatal error', { error: getErrorDetails(error) });
   process.exit(1);
 });
