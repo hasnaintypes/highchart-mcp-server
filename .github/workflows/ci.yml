@@ -58,3 +58,49 @@ jobs:
 
       - name: Build image
         run: docker build -t highchart-mcp-server:ci .
+
+      - name: Smoke test (run the image, hit /health, render an SVG)
+        run: |
+          docker run -d --name smoke -p 3000:3000 \
+            -e TRANSPORT=http -e PORT=3000 \
+            --shm-size=512m highchart-mcp-server:ci
+
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:3000/health; then break; fi
+            echo "waiting for health ($i/30)..."; sleep 2
+          done
+          curl -fsS http://localhost:3000/health
+
+          # End-to-end: initialize an MCP session and render a real chart,
+          # exercising the offline Highcharts cache + headless Chromium.
+          # Catches regressions like an incomplete cache manifest or a
+          # browser that fails to launch in the container (both shipped
+          # silently before this smoke test existed, since a plain
+          # `docker build` never runs the image).
+          session=$(curl -fsS -D - -o /tmp/init.json http://localhost:3000/mcp \
+            -H 'Content-Type: application/json' \
+            -H 'Accept: application/json, text/event-stream' \
+            -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"ci-smoke","version":"1.0.0"}}}' \
+            | grep -i '^mcp-session-id:' | tr -d '\r' | cut -d' ' -f2)
+          echo "session=$session"
+          test -n "$session"
+
+          curl -fsS http://localhost:3000/mcp \
+            -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' \
+            -H "mcp-session-id: $session" \
+            -d '{"jsonrpc":"2.0","method":"notifications/initialized"}' -o /dev/null
+
+          curl -fsS http://localhost:3000/mcp \
+            -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' \
+            -H "mcp-session-id: $session" \
+            -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"create_chart","arguments":{"type":"line","series":[{"data":[1,2,3]}],"format":"svg"}}}' \
+            -o /tmp/chart.json
+          grep -q '<svg' /tmp/chart.json
+
+      - name: Container logs
+        if: always()
+        run: docker logs smoke || true
+
+      - name: Cleanup
+        if: always()
+        run: docker rm -f smoke || true
