@@ -28,7 +28,7 @@ Run the container and expose `/mcp` (JSON-RPC), `/health`, `/metrics`.
 
 ```bash
 # from repo root
-docker build -f docker/Dockerfile -t highchart-mcp-server .
+docker build -t highchart-mcp-server .
 docker run -p 3000:3000 \
   -e TRANSPORT=http \
   -e AUTH_STRATEGY=apikey \

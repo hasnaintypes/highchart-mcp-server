@@ -57,4 +57,4 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Build image
-        run: docker build -f docker/Dockerfile -t highchart-mcp-server:ci .
+        run: docker build -t highchart-mcp-server:ci .

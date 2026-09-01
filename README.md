@@ -126,7 +126,7 @@ Highlights:
 Docker:
 
 ```bash
-docker build -f docker/Dockerfile -t highchart-mcp-server .
+docker build -t highchart-mcp-server .
 docker run -p 3000:3000 -e AUTH_STRATEGY=apikey -e API_KEYS=client1:changeme \
   --shm-size=512m highchart-mcp-server
 # or: docker compose -f docker/docker-compose.yml up --build

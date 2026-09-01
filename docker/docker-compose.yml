@@ -2,7 +2,7 @@ services:
   highchart-mcp:
     build:
       context: ..
-      dockerfile: docker/Dockerfile
+      dockerfile: Dockerfile
     image: highchart-mcp-server:latest
     container_name: highchart-mcp
     restart: unless-stopped
