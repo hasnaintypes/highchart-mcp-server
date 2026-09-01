@@ -7,6 +7,20 @@ import { incr, observe, setGauge } from '../metrics/index.js';
 
 export type ExportFormat = 'svg' | 'png' | 'pdf';
 
+/** Maps our LOG_LEVEL to highcharts-export-server's numeric logging level (1=error .. 4=debug). */
+function exportServerLogLevel(): number {
+  switch (config.LOG_LEVEL) {
+    case 'debug':
+      return 4;
+    case 'info':
+      return 3;
+    case 'warn':
+      return 2;
+    default:
+      return 1;
+  }
+}
+
 export interface ExportOutput {
   format: ExportFormat;
   data: string;
@@ -37,7 +51,7 @@ export async function initExportService(): Promise<void> {
   const maxWorkers = config.EXPORT_MAX_WORKERS;
   const settings = exporter.setOptions({
     pool: { minWorkers: 1, maxWorkers: maxWorkers },
-    logging: { level: 1 },
+    logging: { level: exportServerLogLevel() },
     other: { noLogo: true },
     ...(config.PUPPETEER_ARGS.length > 0 && { puppeteer: { args: config.PUPPETEER_ARGS } }),
     ...(highcharts !== undefined && { highcharts }),
