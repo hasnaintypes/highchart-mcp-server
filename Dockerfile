@@ -24,7 +24,10 @@ ENV NODE_ENV=production \
     TRANSPORT=http \
     PORT=3000 \
     HIGHCHARTS_CACHE_PATH=../../.hc-cache \
-    HOME=/home/appuser
+    HOME=/home/appuser \
+    POOL_ACQUIRE_TIMEOUT=30000 \
+    POOL_CREATE_TIMEOUT=30000 \
+    EXPORT_TIMEOUT_MS=45000
 
 # Chromium + fonts + CA certs (runtime libraries for headless rendering).
 RUN apt-get update \
