@@ -20,10 +20,11 @@ FROM node:20-bookworm-slim AS runtime
 ENV NODE_ENV=production \
     PUPPETEER_SKIP_DOWNLOAD=true \
     PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium \
-    PUPPETEER_ARGS=--no-sandbox,--disable-setuid-sandbox,--disable-dev-shm-usage \
+    PUPPETEER_ARGS=--no-sandbox,--disable-setuid-sandbox,--disable-dev-shm-usage,--disable-crash-reporter,--disable-breakpad \
     TRANSPORT=http \
     PORT=3000 \
-    HIGHCHARTS_CACHE_PATH=../../.hc-cache
+    HIGHCHARTS_CACHE_PATH=../../.hc-cache \
+    HOME=/home/appuser
 
 # Chromium + fonts + CA certs (runtime libraries for headless rendering).
 RUN apt-get update \
@@ -48,9 +49,13 @@ COPY scripts ./scripts
 # package (no CDN needed at build or runtime).
 RUN node scripts/seed-cache.mjs
 
-# Run as a non-root user.
-RUN useradd --system --uid 10001 appuser \
-    && chown -R appuser:appuser /app
+# Run as a non-root user. Chromium's crashpad handler needs a writable $HOME
+# to initialize its crash-dump database, so create a real home directory
+# (a bare `--system` user has none, which makes crashpad fail to launch:
+# "chrome_crashpad_handler: --database is required"). Belt-and-suspenders:
+# also disable the crash reporter entirely via PUPPETEER_ARGS above.
+RUN useradd --system --uid 10001 --create-home --home-dir /home/appuser appuser \
+    && chown -R appuser:appuser /app /home/appuser
 USER appuser
 
 EXPOSE 3000
