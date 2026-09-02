@@ -25,6 +25,18 @@ function base64urlDecode(input: string): Buffer {
   return Buffer.from(input.replace(/-/g, '+').replace(/_/g, '/') + pad, 'base64');
 }
 
+function base64urlEncode(input: Buffer | string): string {
+  return Buffer.from(input).toString('base64url');
+}
+
+/** Mints a minimal HS256 JWT, mirroring the claims `createJwtAuthenticator` verifies. */
+export function signJwtHs256(payload: Record<string, unknown>, secret: string): string {
+  const header = base64urlEncode(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+  const body = base64urlEncode(JSON.stringify(payload));
+  const signature = createHmac('sha256', secret).update(`${header}.${body}`).digest();
+  return `${header}.${body}.${base64urlEncode(signature)}`;
+}
+
 function extractBearer(req: IncomingMessage): string | undefined {
   const auth = req.headers['authorization'];
   if (typeof auth === 'string' && auth.startsWith('Bearer ')) {

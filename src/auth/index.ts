@@ -4,6 +4,8 @@ import type { AuthContext, Authenticator } from './types.js';
 import { AuthError } from './types.js';
 import { createApiKeyAuthenticator } from './apiKey.js';
 import { createJwtAuthenticator } from './jwt.js';
+import { createOAuth } from './oauth/index.js';
+import type { createOAuthRoutes } from './oauth/index.js';
 
 export type { AuthContext, Authenticator } from './types.js';
 export { AuthError } from './types.js';
@@ -11,27 +13,51 @@ export { parseApiKeys } from './apiKey.js';
 
 const ANONYMOUS: AuthContext = { authenticated: false, scopes: [] };
 
-/** Builds the authenticator for the configured strategy. */
-export function createAuthenticator(): Authenticator {
+/** Non-`/mcp` OAuth endpoints (discovery, DCR, authorize, token). */
+export type OAuthRoutes = ReturnType<typeof createOAuthRoutes>;
+
+/**
+ * Builds the authenticator (and, for AUTH_STRATEGY=oauth, the paired discovery/
+ * DCR/authorize/token routes) for the configured strategy. Call once per
+ * process — the oauth strategy owns an in-process client/code/token store that
+ * the authenticator and routes must share.
+ */
+export function createAuthenticator(): { authenticator: Authenticator; oauthRoutes?: OAuthRoutes } {
   switch (config.AUTH_STRATEGY) {
     case 'apikey':
-      return createApiKeyAuthenticator(config.API_KEYS);
+      return { authenticator: createApiKeyAuthenticator(config.API_KEYS) };
     case 'jwt': {
       if (config.JWT_SECRET === undefined) {
         throw new Error('AUTH_STRATEGY=jwt requires JWT_SECRET to be set.');
       }
-      return createJwtAuthenticator({
-        secret: config.JWT_SECRET,
-        issuer: config.JWT_ISSUER,
-        audience: config.JWT_AUDIENCE,
+      return {
+        authenticator: createJwtAuthenticator({
+          secret: config.JWT_SECRET,
+          issuer: config.JWT_ISSUER,
+          audience: config.JWT_AUDIENCE,
+        }),
+      };
+    }
+    case 'oauth': {
+      if (config.PUBLIC_URL === undefined) {
+        throw new Error('AUTH_STRATEGY=oauth requires PUBLIC_URL to be set.');
+      }
+      const oauth = createOAuth({
+        publicUrl: config.PUBLIC_URL,
+        apiKeys: config.API_KEYS,
+        accessTokenTtlMs: config.OAUTH_ACCESS_TOKEN_TTL_MS,
+        codeTtlMs: config.OAUTH_CODE_TTL_MS,
       });
+      return { authenticator: oauth.authenticator, oauthRoutes: oauth.routes };
     }
     case 'none':
     default:
       return {
-        strategy: 'none',
-        async verify(): Promise<AuthContext> {
-          return ANONYMOUS;
+        authenticator: {
+          strategy: 'none',
+          async verify(): Promise<AuthContext> {
+            return ANONYMOUS;
+          },
         },
       };
   }

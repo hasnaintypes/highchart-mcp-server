@@ -24,6 +24,6 @@ export class AuthError extends Error {
 
 /** Verifies an incoming request and returns its auth context, or throws AuthError. */
 export interface Authenticator {
-  readonly strategy: 'none' | 'apikey' | 'jwt';
+  readonly strategy: 'none' | 'apikey' | 'jwt' | 'oauth';
   verify(req: IncomingMessage): Promise<AuthContext>;
 }

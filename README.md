@@ -133,7 +133,7 @@ Highlights:
 | Transport | `TRANSPORT` (`stdio`/`http`), `PORT`, `LOG_LEVEL` |
 | Rendering | `EXPORT_TIMEOUT_MS`, `EXPORT_MAX_WORKERS`, `PUPPETEER_ARGS`, `HIGHCHARTS_CDN_URL`, `HIGHCHARTS_CACHE_PATH` |
 | HTTP limits | `HTTP_MAX_BODY_BYTES`, `HTTP_MAX_SESSIONS` |
-| Auth | `AUTH_STRATEGY` (`none`/`apikey`/`jwt`), `API_KEYS`, `JWT_SECRET`, `JWT_ISSUER`, `JWT_AUDIENCE`, `AUTH_REQUIRED_SCOPES` |
+| Auth | `AUTH_STRATEGY` (`none`/`apikey`/`jwt`/`oauth`), `API_KEYS`, `JWT_SECRET`, `JWT_ISSUER`, `JWT_AUDIENCE`, `AUTH_REQUIRED_SCOPES`, `PUBLIC_URL`, `OAUTH_ACCESS_TOKEN_TTL_MS`, `OAUTH_CODE_TTL_MS` |
 | Rate limit | `RATE_LIMIT_ENABLED`, `RATE_LIMIT_RPM`, `RATE_LIMIT_BURST` |
 | Metrics | `METRICS_ENABLED`, `METRICS_PUBLIC`, `METRICS_LOG_INTERVAL_MS` |
 | Licensing | `HIGHCHARTS_LICENSE_ID`, `HIGHCHARTS_CREDITS_ENABLED` (see [LICENSING.md](./LICENSING.md)) |
@@ -151,6 +151,35 @@ docker run -p 3000:3000 -e AUTH_STRATEGY=apikey -e API_KEYS=client1:changeme \
 
 Always enable auth + rate limiting for any network exposure and terminate TLS
 at a reverse proxy or the platform's load balancer.
+
+### Connecting from Claude.ai / ChatGPT (remote MCP connectors)
+
+Claude.ai's and ChatGPT's "custom connector" UIs can't accept a pasted bearer
+token — they only know how to drive an OAuth 2.1 authorization-code + PKCE flow
+with dynamic client registration (per the MCP Authorization spec). Set
+`AUTH_STRATEGY=oauth` to have this server act as both the authorization server
+and resource server for that flow:
+
+```bash
+AUTH_STRATEGY=oauth PUBLIC_URL=https://charts.example.com API_KEYS=demo:changeme
+```
+
+- `PUBLIC_URL` **must** be the externally-reachable HTTPS origin of this server
+  (no trailing slash) — it's used as the OAuth issuer/audience and in the
+  `.well-known` discovery documents, since the process can't infer it behind a
+  reverse proxy.
+- `API_KEYS` does double duty: the same `id:key[:scopes]` entries used by the
+  `apikey` strategy are shown as a login form (`GET /authorize`) when a
+  platform starts the OAuth flow — enter the `id` and `key` there once per
+  connector install to grant it a token scoped to that entry's `scopes`.
+- No extra dependency or database is required: client registrations,
+  authorization codes, and refresh tokens are held in-process (see
+  `src/auth/oauth/store.ts`), the same tradeoff already made for HTTP sessions
+  and rate limiting — fine for a single-instance deployment.
+- In Claude.ai, add a Custom Connector pointing at `https://charts.example.com/mcp`;
+  in ChatGPT, add it as an MCP connector with the same URL. Both will discover
+  `/.well-known/oauth-protected-resource`, self-register via `/register`, and
+  redirect the user through `/authorize` automatically.
 
 ## CLI
 

@@ -1,6 +1,6 @@
 export type TransportType = 'stdio' | 'http';
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
-export type AuthStrategy = 'none' | 'apikey' | 'jwt';
+export type AuthStrategy = 'none' | 'apikey' | 'jwt' | 'oauth';
 
 export interface AppConfig {
   readonly PORT: number;
@@ -55,6 +55,17 @@ export interface AppConfig {
   readonly JWT_AUDIENCE: string | undefined;
   /** Scopes every authenticated request must hold (comma-separated). */
   readonly AUTH_REQUIRED_SCOPES: string[];
+  /**
+   * Canonical external base URL of this server (e.g. `https://charts.example.com`,
+   * no trailing slash). Required for AUTH_STRATEGY=oauth: used as the OAuth issuer,
+   * the token audience, and in the `.well-known` discovery documents. The process
+   * cannot infer this itself when run behind a reverse proxy/load balancer.
+   */
+  readonly PUBLIC_URL: string | undefined;
+  /** Lifetime (ms) of OAuth access tokens issued by AUTH_STRATEGY=oauth (default 3600000). */
+  readonly OAUTH_ACCESS_TOKEN_TTL_MS: number;
+  /** Lifetime (ms) of OAuth authorization codes issued by AUTH_STRATEGY=oauth (default 60000). */
+  readonly OAUTH_CODE_TTL_MS: number;
   /** Whether to enforce rate limiting on the HTTP transport (default false). */
   readonly RATE_LIMIT_ENABLED: boolean;
   /** Sustained requests per minute per client (default 120). */
@@ -106,14 +117,21 @@ function parsePositiveIntDefault(value: string | undefined, fallback: number): n
 }
 
 function parseAuthStrategy(value: string | undefined): AuthStrategy {
-  if (value === 'apikey' || value === 'jwt' || value === 'none') return value;
+  if (value === 'apikey' || value === 'jwt' || value === 'oauth' || value === 'none') return value;
   return 'none';
+}
+
+function stripTrailingSlash(value: string): string {
+  return value.endsWith('/') ? value.slice(0, -1) : value;
 }
 
 function parseCsv(value: string | undefined): string[] {
   if (value === undefined) return [];
   return value.split(',').map((s) => s.trim()).filter((s) => s.length > 0);
 }
+
+const publicUrlRaw = parseOptionalString(process.env['PUBLIC_URL']);
+const publicUrl = publicUrlRaw === undefined ? undefined : stripTrailingSlash(publicUrlRaw);
 
 const licenseId = parseOptionalString(process.env['HIGHCHARTS_LICENSE_ID']);
 // Credits attribution may only be removed with a valid license. Without a
@@ -147,6 +165,9 @@ export const config: AppConfig = Object.freeze({
   JWT_ISSUER: parseOptionalString(process.env['JWT_ISSUER']),
   JWT_AUDIENCE: parseOptionalString(process.env['JWT_AUDIENCE']),
   AUTH_REQUIRED_SCOPES: parseCsv(process.env['AUTH_REQUIRED_SCOPES']),
+  PUBLIC_URL: publicUrl,
+  OAUTH_ACCESS_TOKEN_TTL_MS: parsePositiveIntDefault(process.env['OAUTH_ACCESS_TOKEN_TTL_MS'], 3_600_000),
+  OAUTH_CODE_TTL_MS: parsePositiveIntDefault(process.env['OAUTH_CODE_TTL_MS'], 60_000),
   RATE_LIMIT_ENABLED: parseBoolean(process.env['RATE_LIMIT_ENABLED']),
   RATE_LIMIT_RPM: parsePositiveIntDefault(process.env['RATE_LIMIT_RPM'], 120),
   RATE_LIMIT_BURST: parsePositiveIntDefault(process.env['RATE_LIMIT_BURST'], 20),

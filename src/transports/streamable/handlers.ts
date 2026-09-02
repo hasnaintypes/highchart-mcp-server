@@ -3,8 +3,8 @@ import { logger, getErrorMessage } from '../../utils/index.js';
 import { config } from '../../config/index.js';
 import { renderProm, uptimeSeconds, incr } from '../../metrics/index.js';
 import { createAuthenticator, authenticateRequest, AuthError } from '../../auth/index.js';
+import type { Authenticator, AuthContext, OAuthRoutes } from '../../auth/index.js';
 import { createRateLimiter, type RateLimiter } from '../../middleware/rateLimit.js';
-import type { AuthContext } from '../../auth/index.js';
 import type { SessionManager } from './sessionManager.js';
 
 function clientKey(req: IncomingMessage, ctx: AuthContext): string {
@@ -23,13 +23,14 @@ export function createRequestHandler(
   sessions: SessionManager,
 ): (req: IncomingMessage, res: ServerResponse) => void {
   // Built once from config (fail fast on misconfiguration, e.g. jwt w/o secret).
-  const authenticator = createAuthenticator();
+  const { authenticator, oauthRoutes } = createAuthenticator();
   const limiter: RateLimiter | undefined = config.RATE_LIMIT_ENABLED
     ? createRateLimiter(config.RATE_LIMIT_RPM, config.RATE_LIMIT_BURST)
     : undefined;
 
   return (req, res) => {
-    const url = (req.url ?? '/').split('?')[0]!;
+    const fullUrl = new URL(req.url ?? '/', 'http://internal');
+    const url = fullUrl.pathname;
 
     // Health is always open (no auth, no rate limit).
     if (url === '/health' && req.method === 'GET') {
@@ -41,6 +42,13 @@ export function createRequestHandler(
       return;
     }
 
+    // OAuth discovery/DCR/authorize/token endpoints ARE the auth mechanism, so
+    // they're unauthenticated by definition; only registered for AUTH_STRATEGY=oauth.
+    if (oauthRoutes !== undefined) {
+      const handled = handleOAuthRoute(req, res, url, fullUrl, oauthRoutes, limiter);
+      if (handled) return;
+    }
+
     void handleProtected(req, res, url, sessions, authenticator, limiter).catch((error: unknown) => {
       const message = getErrorMessage(error);
       logger.error('Unhandled request error', { error: message });
@@ -49,12 +57,63 @@ export function createRequestHandler(
   };
 }
 
+function oauthClientKey(req: IncomingMessage): string {
+  const fwd = req.headers['x-forwarded-for'];
+  const ip = typeof fwd === 'string' ? fwd.split(',')[0]!.trim() : req.socket.remoteAddress;
+  return `ip:${ip ?? 'unknown'}`;
+}
+
+/** Returns true if the route matched (and the response was handled or will be). */
+function handleOAuthRoute(
+  req: IncomingMessage,
+  res: ServerResponse,
+  url: string,
+  fullUrl: URL,
+  routes: OAuthRoutes,
+  limiter: RateLimiter | undefined,
+): boolean {
+  if (url === '/.well-known/oauth-protected-resource' && req.method === 'GET') {
+    routes.protectedResourceMetadata(req, res);
+    return true;
+  }
+  if (url === '/.well-known/oauth-authorization-server' && req.method === 'GET') {
+    routes.authorizationServerMetadata(req, res);
+    return true;
+  }
+  if (url === '/register' && req.method === 'POST') {
+    void routes.register(req, res);
+    return true;
+  }
+  if (url === '/authorize' && req.method === 'GET') {
+    routes.authorizeGet(req, res, fullUrl.searchParams);
+    return true;
+  }
+  // Login submission and token exchange are rate limited per-IP (unauthenticated).
+  if (url === '/authorize' && req.method === 'POST') {
+    if (limiter !== undefined && !limiter.check(oauthClientKey(req)).allowed) {
+      sendJson(res, 429, { error: 'Too many requests' });
+      return true;
+    }
+    void routes.authorizePost(req, res);
+    return true;
+  }
+  if (url === '/token' && req.method === 'POST') {
+    if (limiter !== undefined && !limiter.check(oauthClientKey(req)).allowed) {
+      sendJson(res, 400, { error: 'invalid_request', error_description: 'Too many requests' });
+      return true;
+    }
+    void routes.token(req, res);
+    return true;
+  }
+  return false;
+}
+
 async function handleProtected(
   req: IncomingMessage,
   res: ServerResponse,
   url: string,
   sessions: SessionManager,
-  authenticator: ReturnType<typeof createAuthenticator>,
+  authenticator: Authenticator,
   limiter: RateLimiter | undefined,
 ): Promise<void> {
   // --- /metrics (auth unless METRICS_PUBLIC; never rate limited) ---
