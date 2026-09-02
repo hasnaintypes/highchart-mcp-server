@@ -1,5 +1,5 @@
 {
-  "name": "highchart-mcp-server",
+  "name": "@highchart-mcp/server",
   "version": "1.0.0",
   "type": "module",
   "description": "A Model Context Protocol (MCP) server designed to generate Highcharts‑based charts and visualizations in a **production‑ready**, **AI‑enhanced**, and **validated** manner. This server can be integrated with any MCP‑capable AI client (such as Claude, ChatGPT, Cursor, Dify, VSCode, etc.) to automate chart generation, validation, and export workflows.",
@@ -15,6 +15,9 @@
   ],
   "directories": {
     "doc": "docs"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "dev": "tsx --watch src/index.ts",

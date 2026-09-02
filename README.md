@@ -13,7 +13,7 @@ VS Code, etc.) over **STDIO** or **Streamable HTTP**.
 
 | Package | Registry | Install |
 | --- | --- | --- |
-| [`highchart-mcp-server`](https://www.npmjs.com/package/highchart-mcp-server) | npm | `npm install -g highchart-mcp-server` (provides the `highchart-mcp` CLI + server) |
+| [`@highchart-mcp/server`](https://www.npmjs.com/package/@highchart-mcp/server) | npm | `npm install -g @highchart-mcp/server` (provides the `highchart-mcp` CLI + server) |
 | [`@highchart-mcp/sdk`](https://www.npmjs.com/package/@highchart-mcp/sdk) | npm | `npm install @highchart-mcp/sdk` |
 | [`highchart-mcp-sdk`](https://pypi.org/project/highchart-mcp-sdk/) | PyPI | `pip install highchart-mcp-sdk` |
 
@@ -54,7 +54,7 @@ Requires **Node.js 20+**.
 **From npm** (published package — no clone needed):
 
 ```bash
-npm install -g highchart-mcp-server
+npm install -g @highchart-mcp/server
 highchart-mcp serve --transport stdio   # or: highchart-mcp serve --transport http --port 3000
 ```
 
@@ -121,7 +121,7 @@ npm run seed:cache      # populate the cache from the local package (no network)
 npm run render:samples  # render one SVG per constructor to .render-samples/
 ```
 
-The Docker image bakes this cache at build time. See [DEPLOYMENT.md](./DEPLOYMENT.md).
+The Docker image bakes this cache at build time.
 
 ## Configuration
 
@@ -149,8 +149,8 @@ docker run -p 3000:3000 -e AUTH_STRATEGY=apikey -e API_KEYS=client1:changeme \
 # or: docker compose -f docker/docker-compose.yml up --build
 ```
 
-Hosting options, resource guidance, and reverse-proxy/TLS notes are in
-[DEPLOYMENT.md](./DEPLOYMENT.md).
+Always enable auth + rate limiting for any network exposure and terminate TLS
+at a reverse proxy or the platform's load balancer.
 
 ## CLI
 
@@ -209,20 +209,48 @@ All three published packages are versioned independently with
 
 | Package | Version file |
 | --- | --- |
-| `highchart-mcp-server` | [`package.json`](./package.json) |
+| `@highchart-mcp/server` | [`package.json`](./package.json) |
 | `@highchart-mcp/sdk` | [`packages/sdk-js/package.json`](./packages/sdk-js/package.json) |
 | `highchart-mcp-sdk` | [`packages/sdk-python/pyproject.toml`](./packages/sdk-python/pyproject.toml) |
 
 **Rule: bump the version of every package you change before publishing —
 never publish the same version twice.** Patch (`x.y.Z`) for fixes, minor
 (`x.Y.0`) for backwards-compatible features/additions, major (`X.0.0`) for
-breaking changes. A change to `src/**` bumps `highchart-mcp-server`; a change
+breaking changes. A change to `src/**` bumps `@highchart-mcp/server`; a change
 to `packages/sdk-js/**` bumps `@highchart-mcp/sdk`; a change to
 `packages/sdk-python/**` bumps `highchart-mcp-sdk`. Shared/cross-cutting
 changes (e.g. a protocol change affecting the tools) bump all affected
 packages together.
 
-To publish a new version:
+### Automated (CI) — the normal path
+
+[`.github/workflows/publish.yml`](./.github/workflows/publish.yml) publishes
+automatically on every push to `master`. For each package it compares the
+version in the repo against the version currently on the registry; if it's
+different, it builds, tests, and publishes that package (and only that one).
+So publishing a new version is just:
+
+1. Bump the version(s) that changed (see the rule above).
+2. Commit and push/merge to `master`.
+3. CI builds, tests, and publishes automatically — no local `npm publish` /
+   `twine upload`, no tokens to manage. It uses npm and PyPI **trusted
+   publishing (OIDC)**, so nothing is stored as a GitHub secret.
+
+**One-time setup** (do this once per package; repeat only if the workflow
+file is renamed/moved, or for a new package):
+
+- npmjs.com → package **Settings → Publishing access → Trusted Publisher**,
+  add this GitHub repo + `.github/workflows/publish.yml` — for both
+  `@highchart-mcp/server` and `@highchart-mcp/sdk`.
+- pypi.org → project **Settings → Publishing**, add this GitHub repo +
+  `.github/workflows/publish.yml` — for `highchart-mcp-sdk`.
+
+You can also trigger it manually from the Actions tab (`workflow_dispatch`)
+if you need to re-run a publish without a new push.
+
+### Manual (fallback)
+
+If CI is down or you need to publish from your machine:
 
 ```bash
 # 1. Bump the version(s) that changed, build, and test.
@@ -234,8 +262,8 @@ npm run build && npm test
 npm run build -w @highchart-mcp/sdk && npm test -w @highchart-mcp/sdk
 
 # 2. Publish (npm requires an OTP if 2FA is enabled).
-npm publish --otp=<code>
-npm publish -w @highchart-mcp/sdk --otp=<code>
+npm publish --access public --otp=<code>
+npm publish -w @highchart-mcp/sdk --access public --otp=<code>
 
 # 3. Publish the Python SDK.
 cd packages/sdk-python
@@ -244,7 +272,7 @@ twine check dist/*
 twine upload dist/*   # __token__ / a PyPI API token
 ```
 
-Commit the version bump(s) (e.g. `chore(release): highchart-mcp-server@1.1.0`)
+Commit the version bump(s) (e.g. `chore(release): @highchart-mcp/server@1.1.0`)
 alongside or right after the code change that motivated them.
 
 ## Licensing
