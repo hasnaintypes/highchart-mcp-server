@@ -1,9 +1,9 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { signJwtHs256 } from '../jwt.js';
-import { safeEqual, parseApiKeys } from '../apiKey.js';
 import { verifyPkce } from './pkce.js';
 import type { OAuthStore } from './store.js';
 import { buildAuthorizationServerMetadata, buildProtectedResourceMetadata } from './metadata.js';
+import { buildGithubAuthorizeUrl, exchangeGithubCode, fetchGithubOrgs, fetchGithubUser, isAllowed } from './github.js';
 
 const MAX_BODY_BYTES = 65_536;
 
@@ -11,8 +11,12 @@ export interface OAuthRoutesOptions {
   store: OAuthStore;
   publicUrl: string;
   secret: string;
-  apiKeys: string | undefined;
   accessTokenTtlMs: number;
+  githubClientId: string;
+  githubClientSecret: string;
+  githubAllowedUsers: string[];
+  githubAllowedOrgs: string[];
+  grantedScopes: string[];
 }
 
 function sendJson(res: ServerResponse, status: number, body: unknown, headers: Record<string, string> = {}): void {
@@ -66,23 +70,13 @@ function escapeHtml(value: string): string {
     .replace(/'/g, '&#39;');
 }
 
-function renderLoginForm(params: Record<string, string>, error?: string): string {
-  const hidden = ['client_id', 'redirect_uri', 'code_challenge', 'code_challenge_method', 'state', 'resource']
-    .filter((key) => params[key] !== undefined)
-    .map((key) => `<input type="hidden" name="${key}" value="${escapeHtml(params[key]!)}">`)
-    .join('\n      ');
+function errorPage(title: string, message: string): string {
   return `<!doctype html>
 <html>
-  <head><meta charset="utf-8"><title>Sign in</title></head>
+  <head><meta charset="utf-8"><title>${escapeHtml(title)}</title></head>
   <body>
-    <h1>Sign in to authorize this connector</h1>
-    ${error !== undefined ? `<p style="color:red">${escapeHtml(error)}</p>` : ''}
-    <form method="POST" action="/authorize">
-      ${hidden}
-      <label>Key ID: <input type="text" name="key_id" autocomplete="username"></label><br>
-      <label>API Key: <input type="password" name="api_key" autocomplete="current-password"></label><br>
-      <button type="submit">Authorize</button>
-    </form>
+    <h1>${escapeHtml(title)}</h1>
+    <p>${escapeHtml(message)}</p>
   </body>
 </html>`;
 }
@@ -107,12 +101,22 @@ export function createOAuthRoutes(options: OAuthRoutesOptions): {
   authorizationServerMetadata(req: IncomingMessage, res: ServerResponse): void;
   register(req: IncomingMessage, res: ServerResponse): Promise<void>;
   authorizeGet(req: IncomingMessage, res: ServerResponse, query: URLSearchParams): void;
-  authorizePost(req: IncomingMessage, res: ServerResponse): Promise<void>;
+  githubCallback(req: IncomingMessage, res: ServerResponse, query: URLSearchParams): Promise<void>;
   token(req: IncomingMessage, res: ServerResponse): Promise<void>;
 } {
-  const { store, publicUrl, secret, apiKeys, accessTokenTtlMs } = options;
+  const {
+    store,
+    publicUrl,
+    secret,
+    accessTokenTtlMs,
+    githubClientId,
+    githubClientSecret,
+    githubAllowedUsers,
+    githubAllowedOrgs,
+    grantedScopes,
+  } = options;
   const canonicalResource = `${publicUrl}/mcp`;
-  const loginEntries = parseApiKeys(apiKeys);
+  const githubCallbackUrl = `${publicUrl}/oauth/github/callback`;
 
   function issueTokenResponse(res: ServerResponse, subject: string, scopes: string[], clientId: string): void {
     const now = Math.floor(Date.now() / 1000);
@@ -187,61 +191,99 @@ export function createOAuthRoutes(options: OAuthRoutesOptions): {
         oauthError(res, 400, 'invalid_request', check.message);
         return;
       }
-      if (params['code_challenge_method'] !== 'S256' || !params['code_challenge']) {
-        oauthError(res, 400, 'invalid_request', 'PKCE (S256) code_challenge is required');
-        return;
-      }
-      sendHtml(res, 200, renderLoginForm(params));
-    },
-
-    async authorizePost(req, res) {
-      let params: Record<string, string>;
-      try {
-        const raw = await readBody(req);
-        params = parseFormOrJson(req.headers['content-type'], raw);
-      } catch {
-        oauthError(res, 400, 'invalid_request', 'Malformed request body');
-        return;
-      }
-
-      const check = validateClientRedirect(store, params['client_id'], params['redirect_uri']);
-      if (!check.ok) {
-        oauthError(res, 400, 'invalid_request', check.message);
-        return;
-      }
       const codeChallenge = params['code_challenge'];
       if (params['code_challenge_method'] !== 'S256' || !codeChallenge) {
         oauthError(res, 400, 'invalid_request', 'PKCE (S256) code_challenge is required');
         return;
       }
-
-      const keyId = params['key_id'] ?? '';
-      const apiKey = params['api_key'] ?? '';
-      const match = loginEntries.find((e) => safeEqual(e.id, keyId) && safeEqual(e.key, apiKey));
-      if (match === undefined) {
-        sendHtml(res, 401, renderLoginForm(params, 'Invalid key ID or API key'));
-        return;
-      }
-
       const resource = params['resource'];
       if (resource !== undefined && resource !== canonicalResource) {
         oauthError(res, 400, 'invalid_target', 'Unknown resource');
         return;
       }
 
-      const code = store.createAuthCode({
+      const pendingId = store.createPendingAuth({
         clientId: params['client_id']!,
         redirectUri: params['redirect_uri']!,
         codeChallenge,
-        subject: match.id,
-        scopes: match.scopes,
+        ...(params['state'] !== undefined ? { state: params['state'] } : {}),
+        ...(resource !== undefined ? { resource } : {}),
       });
 
-      const redirectUrl = new URL(params['redirect_uri']!);
-      redirectUrl.searchParams.set('code', code);
-      if (params['state'] !== undefined) redirectUrl.searchParams.set('state', params['state']);
-      res.writeHead(302, { Location: redirectUrl.toString() });
+      const githubUrl = buildGithubAuthorizeUrl({
+        clientId: githubClientId,
+        redirectUri: githubCallbackUrl,
+        state: pendingId,
+        includeOrgScope: githubAllowedOrgs.length > 0,
+      });
+      res.writeHead(302, { Location: githubUrl });
       res.end();
+    },
+
+    async githubCallback(req, res, query) {
+      const state = query.get('state');
+      const githubError = query.get('error');
+      const pending = state !== null ? store.consumePendingAuth(state) : undefined;
+
+      if (githubError !== null) {
+        if (pending !== undefined) {
+          const redirectUrl = new URL(pending.redirectUri);
+          redirectUrl.searchParams.set('error', 'access_denied');
+          if (pending.state !== undefined) redirectUrl.searchParams.set('state', pending.state);
+          res.writeHead(302, { Location: redirectUrl.toString() });
+          res.end();
+          return;
+        }
+        sendHtml(res, 400, errorPage('Sign-in cancelled', 'GitHub sign-in was cancelled or denied.'));
+        return;
+      }
+
+      if (pending === undefined) {
+        sendHtml(res, 400, errorPage('Sign-in expired', 'This sign-in attempt is unknown or has expired. Please try connecting again.'));
+        return;
+      }
+
+      const code = query.get('code');
+      if (code === null) {
+        sendHtml(res, 400, errorPage('Sign-in failed', 'GitHub did not return an authorization code.'));
+        return;
+      }
+
+      try {
+        const accessToken = await exchangeGithubCode({
+          clientId: githubClientId,
+          clientSecret: githubClientSecret,
+          code,
+          redirectUri: githubCallbackUrl,
+        });
+        const user = await fetchGithubUser(accessToken);
+        const orgs = githubAllowedOrgs.length > 0 ? await fetchGithubOrgs(accessToken) : [];
+
+        if (!isAllowed(user.login, orgs, githubAllowedUsers, githubAllowedOrgs)) {
+          sendHtml(
+            res,
+            403,
+            errorPage('Not authorized', `The GitHub account "${user.login}" is not authorized to connect to this server.`),
+          );
+          return;
+        }
+
+        const authCode = store.createAuthCode({
+          clientId: pending.clientId,
+          redirectUri: pending.redirectUri,
+          codeChallenge: pending.codeChallenge,
+          subject: `github:${user.login}`,
+          scopes: grantedScopes,
+        });
+
+        const redirectUrl = new URL(pending.redirectUri);
+        redirectUrl.searchParams.set('code', authCode);
+        if (pending.state !== undefined) redirectUrl.searchParams.set('state', pending.state);
+        res.writeHead(302, { Location: redirectUrl.toString() });
+        res.end();
+      } catch {
+        sendHtml(res, 502, errorPage('Sign-in failed', 'Could not complete sign-in with GitHub. Please try again.'));
+      }
     },
 
     async token(req, res) {

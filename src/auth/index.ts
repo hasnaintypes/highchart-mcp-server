@@ -42,11 +42,18 @@ export function createAuthenticator(): { authenticator: Authenticator; oauthRout
       if (config.PUBLIC_URL === undefined) {
         throw new Error('AUTH_STRATEGY=oauth requires PUBLIC_URL to be set.');
       }
+      if (config.GITHUB_CLIENT_ID === undefined || config.GITHUB_CLIENT_SECRET === undefined) {
+        throw new Error('AUTH_STRATEGY=oauth requires GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET to be set.');
+      }
       const oauth = createOAuth({
         publicUrl: config.PUBLIC_URL,
-        apiKeys: config.API_KEYS,
         accessTokenTtlMs: config.OAUTH_ACCESS_TOKEN_TTL_MS,
         codeTtlMs: config.OAUTH_CODE_TTL_MS,
+        githubClientId: config.GITHUB_CLIENT_ID,
+        githubClientSecret: config.GITHUB_CLIENT_SECRET,
+        githubAllowedUsers: config.GITHUB_ALLOWED_USERS,
+        githubAllowedOrgs: config.GITHUB_ALLOWED_ORGS,
+        grantedScopes: config.OAUTH_GRANTED_SCOPES,
       });
       return { authenticator: oauth.authenticator, oauthRoutes: oauth.routes };
     }

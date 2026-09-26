@@ -66,6 +66,20 @@ export interface AppConfig {
   readonly OAUTH_ACCESS_TOKEN_TTL_MS: number;
   /** Lifetime (ms) of OAuth authorization codes issued by AUTH_STRATEGY=oauth (default 60000). */
   readonly OAUTH_CODE_TTL_MS: number;
+  /** GitHub OAuth App client id. Required for AUTH_STRATEGY=oauth (delegated login). */
+  readonly GITHUB_CLIENT_ID: string | undefined;
+  /** GitHub OAuth App client secret. Required for AUTH_STRATEGY=oauth. */
+  readonly GITHUB_CLIENT_SECRET: string | undefined;
+  /** GitHub usernames allowed to connect (comma-separated). Empty = no per-user restriction. */
+  readonly GITHUB_ALLOWED_USERS: string[];
+  /** GitHub org logins allowed to connect (comma-separated). Empty = no org restriction. */
+  readonly GITHUB_ALLOWED_ORGS: string[];
+  /**
+   * Scopes granted to every authenticated GitHub identity under AUTH_STRATEGY=oauth,
+   * since GitHub identity carries no app-specific scopes of its own. Must cover
+   * AUTH_REQUIRED_SCOPES if that's set, or requests will 403 after a successful login.
+   */
+  readonly OAUTH_GRANTED_SCOPES: string[];
   /** Whether to enforce rate limiting on the HTTP transport (default false). */
   readonly RATE_LIMIT_ENABLED: boolean;
   /** Sustained requests per minute per client (default 120). */
@@ -168,6 +182,11 @@ export const config: AppConfig = Object.freeze({
   PUBLIC_URL: publicUrl,
   OAUTH_ACCESS_TOKEN_TTL_MS: parsePositiveIntDefault(process.env['OAUTH_ACCESS_TOKEN_TTL_MS'], 3_600_000),
   OAUTH_CODE_TTL_MS: parsePositiveIntDefault(process.env['OAUTH_CODE_TTL_MS'], 60_000),
+  GITHUB_CLIENT_ID: parseOptionalString(process.env['GITHUB_CLIENT_ID']),
+  GITHUB_CLIENT_SECRET: parseOptionalString(process.env['GITHUB_CLIENT_SECRET']),
+  GITHUB_ALLOWED_USERS: parseCsv(process.env['GITHUB_ALLOWED_USERS']),
+  GITHUB_ALLOWED_ORGS: parseCsv(process.env['GITHUB_ALLOWED_ORGS']),
+  OAUTH_GRANTED_SCOPES: parseCsv(process.env['OAUTH_GRANTED_SCOPES']),
   RATE_LIMIT_ENABLED: parseBoolean(process.env['RATE_LIMIT_ENABLED']),
   RATE_LIMIT_RPM: parsePositiveIntDefault(process.env['RATE_LIMIT_RPM'], 120),
   RATE_LIMIT_BURST: parsePositiveIntDefault(process.env['RATE_LIMIT_BURST'], 20),

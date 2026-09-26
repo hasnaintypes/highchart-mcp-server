@@ -48,4 +48,30 @@ describe('createOAuthStore', () => {
     expect(first?.subject).toBe('user1');
     expect(store.consumeRefreshToken(token)).toBeUndefined();
   });
+
+  it('pending authorizations are single-use', () => {
+    const store = createOAuthStore(60_000);
+    const id = store.createPendingAuth({
+      clientId: 'c1',
+      redirectUri: 'https://example.com/cb',
+      codeChallenge: 'chal',
+      state: 'xyz',
+    });
+    const first = store.consumePendingAuth(id);
+    expect(first?.clientId).toBe('c1');
+    expect(first?.state).toBe('xyz');
+    expect(store.consumePendingAuth(id)).toBeUndefined();
+  });
+
+  it('expires pending authorizations after 10 minutes', () => {
+    vi.useFakeTimers();
+    const store = createOAuthStore(60_000);
+    const id = store.createPendingAuth({
+      clientId: 'c1',
+      redirectUri: 'https://example.com/cb',
+      codeChallenge: 'chal',
+    });
+    vi.advanceTimersByTime(10 * 60 * 1000 + 1);
+    expect(store.consumePendingAuth(id)).toBeUndefined();
+  });
 });

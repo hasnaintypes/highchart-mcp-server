@@ -11,9 +11,13 @@ export { buildProtectedResourceMetadata, buildAuthorizationServerMetadata } from
 
 export interface OAuthOptions {
   publicUrl: string;
-  apiKeys: string | undefined;
   accessTokenTtlMs: number;
   codeTtlMs: number;
+  githubClientId: string;
+  githubClientSecret: string;
+  githubAllowedUsers: string[];
+  githubAllowedOrgs: string[];
+  grantedScopes: string[];
 }
 
 /**
@@ -58,8 +62,12 @@ export function createOAuth(options: OAuthOptions): {
     store,
     publicUrl: options.publicUrl,
     secret,
-    apiKeys: options.apiKeys,
     accessTokenTtlMs: options.accessTokenTtlMs,
+    githubClientId: options.githubClientId,
+    githubClientSecret: options.githubClientSecret,
+    githubAllowedUsers: options.githubAllowedUsers,
+    githubAllowedOrgs: options.githubAllowedOrgs,
+    grantedScopes: options.grantedScopes,
   });
 
   return { authenticator, routes };

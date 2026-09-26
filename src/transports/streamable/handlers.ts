@@ -88,13 +88,13 @@ function handleOAuthRoute(
     routes.authorizeGet(req, res, fullUrl.searchParams);
     return true;
   }
-  // Login submission and token exchange are rate limited per-IP (unauthenticated).
-  if (url === '/authorize' && req.method === 'POST') {
+  // GitHub callback and token exchange are rate limited per-IP (unauthenticated).
+  if (url === '/oauth/github/callback' && req.method === 'GET') {
     if (limiter !== undefined && !limiter.check(oauthClientKey(req)).allowed) {
       sendJson(res, 429, { error: 'Too many requests' });
       return true;
     }
-    void routes.authorizePost(req, res);
+    void routes.githubCallback(req, res, fullUrl.searchParams);
     return true;
   }
   if (url === '/token' && req.method === 'POST') {

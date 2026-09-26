@@ -133,7 +133,7 @@ Highlights:
 | Transport | `TRANSPORT` (`stdio`/`http`), `PORT`, `LOG_LEVEL` |
 | Rendering | `EXPORT_TIMEOUT_MS`, `EXPORT_MAX_WORKERS`, `PUPPETEER_ARGS`, `HIGHCHARTS_CDN_URL`, `HIGHCHARTS_CACHE_PATH` |
 | HTTP limits | `HTTP_MAX_BODY_BYTES`, `HTTP_MAX_SESSIONS` |
-| Auth | `AUTH_STRATEGY` (`none`/`apikey`/`jwt`/`oauth`), `API_KEYS`, `JWT_SECRET`, `JWT_ISSUER`, `JWT_AUDIENCE`, `AUTH_REQUIRED_SCOPES`, `PUBLIC_URL`, `OAUTH_ACCESS_TOKEN_TTL_MS`, `OAUTH_CODE_TTL_MS` |
+| Auth | `AUTH_STRATEGY` (`none`/`apikey`/`jwt`/`oauth`), `API_KEYS`, `JWT_SECRET`, `JWT_ISSUER`, `JWT_AUDIENCE`, `AUTH_REQUIRED_SCOPES`, `PUBLIC_URL`, `OAUTH_ACCESS_TOKEN_TTL_MS`, `OAUTH_CODE_TTL_MS`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `GITHUB_ALLOWED_USERS`, `GITHUB_ALLOWED_ORGS`, `OAUTH_GRANTED_SCOPES` |
 | Rate limit | `RATE_LIMIT_ENABLED`, `RATE_LIMIT_RPM`, `RATE_LIMIT_BURST` |
 | Metrics | `METRICS_ENABLED`, `METRICS_PUBLIC`, `METRICS_LOG_INTERVAL_MS` |
 | Licensing | `HIGHCHARTS_LICENSE_ID`, `HIGHCHARTS_CREDITS_ENABLED` (see [LICENSING.md](./LICENSING.md)) |
@@ -158,28 +158,38 @@ Claude.ai's and ChatGPT's "custom connector" UIs can't accept a pasted bearer
 token — they only know how to drive an OAuth 2.1 authorization-code + PKCE flow
 with dynamic client registration (per the MCP Authorization spec). Set
 `AUTH_STRATEGY=oauth` to have this server act as both the authorization server
-and resource server for that flow:
+and resource server for that flow, with sign-in delegated to GitHub — no
+passwords or credential database to manage:
 
 ```bash
-AUTH_STRATEGY=oauth PUBLIC_URL=https://charts.example.com API_KEYS=demo:changeme
+AUTH_STRATEGY=oauth PUBLIC_URL=https://charts.example.com \
+  GITHUB_CLIENT_ID=... GITHUB_CLIENT_SECRET=...
 ```
 
 - `PUBLIC_URL` **must** be the externally-reachable HTTPS origin of this server
   (no trailing slash) — it's used as the OAuth issuer/audience and in the
   `.well-known` discovery documents, since the process can't infer it behind a
   reverse proxy.
-- `API_KEYS` does double duty: the same `id:key[:scopes]` entries used by the
-  `apikey` strategy are shown as a login form (`GET /authorize`) when a
-  platform starts the OAuth flow — enter the `id` and `key` there once per
-  connector install to grant it a token scoped to that entry's `scopes`.
+- Create a [GitHub OAuth App](https://github.com/settings/developers) with
+  **Authorization callback URL** set to `${PUBLIC_URL}/oauth/github/callback`,
+  then set `GITHUB_CLIENT_ID`/`GITHUB_CLIENT_SECRET` from it. When a platform
+  starts the OAuth flow, `GET /authorize` redirects the user's browser straight
+  to GitHub to sign in — no form, no shared secret to distribute.
+- By default any GitHub account may connect. Restrict access with
+  `GITHUB_ALLOWED_USERS` (comma-separated usernames) and/or
+  `GITHUB_ALLOWED_ORGS` (comma-separated org logins the user must belong to).
+- Every authorized GitHub identity is granted the scopes in
+  `OAUTH_GRANTED_SCOPES` (comma-separated) — set this to cover
+  `AUTH_REQUIRED_SCOPES` if you use scope enforcement, since GitHub identity
+  itself carries no app-specific scopes.
 - No extra dependency or database is required: client registrations,
-  authorization codes, and refresh tokens are held in-process (see
-  `src/auth/oauth/store.ts`), the same tradeoff already made for HTTP sessions
-  and rate limiting — fine for a single-instance deployment.
+  authorization codes, pending sign-ins, and refresh tokens are held
+  in-process (see `src/auth/oauth/store.ts`), the same tradeoff already made
+  for HTTP sessions and rate limiting — fine for a single-instance deployment.
 - In Claude.ai, add a Custom Connector pointing at `https://charts.example.com/mcp`;
   in ChatGPT, add it as an MCP connector with the same URL. Both will discover
   `/.well-known/oauth-protected-resource`, self-register via `/register`, and
-  redirect the user through `/authorize` automatically.
+  redirect the user through `/authorize` → GitHub sign-in automatically.
 
 ## CLI
 
