@@ -1,0 +1,65 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/*
+ * Theme tokens sourced from Highcharts' own default series palette
+ * (highcharts-color-0..4: #2caffe, #8085e9, #2b908f, #90ed7d, #f45b5b),
+ * applied as a dark UI rather than Highcharts.com's light marketing site.
+ */
+@theme inline {
+  --font-sans: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, "SFMono-Regular", monospace;
+
+  --color-primary: #2caffe;
+  --color-primary-hover: #55c0ff;
+  --color-primary-container: #0c2c3d;
+  --color-on-primary-container: #7cd4ff;
+
+  --color-secondary: #8085e9;
+  --color-secondary-container: #1c1a35;
+  --color-on-secondary-container: #c7c9f7;
+
+  --color-tertiary: #2b908f;
+  --color-tertiary-container: #0c2626;
+  --color-on-tertiary-container: #7ee0df;
+
+  --color-background: #000000;
+  --color-surface: #000000;
+  --color-surface-container: #0a0a0a;
+  --color-surface-container-high: #131313;
+
+  --color-on-surface: #f3f4f6;
+  --color-on-surface-variant: #9ca3af;
+
+  --color-outline: #27272a;
+  --color-outline-variant: #19191c;
+
+  --color-destructive: #f45b5b;
+}
+
+@layer base {
+  * {
+    @apply border-outline;
+  }
+  body {
+    @apply bg-background text-on-surface antialiased;
+  }
+}
+
+/* Custom scrollbar for the dark theme */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #000000;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #404040;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #606060;
+}
