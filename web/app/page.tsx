@@ -212,7 +212,7 @@ GET  /metrics — Prometheus metrics`,
     code: `import { HighchartClient } from '@highchart-mcp/sdk';
 
 const client = await HighchartClient.connectHttp(
-  'http://localhost:3000/mcp',
+  'https://mcp.highcharts-mcp.site/mcp',
   { apiKey }
 );
 

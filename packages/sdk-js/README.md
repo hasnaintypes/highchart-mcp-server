@@ -14,7 +14,7 @@ npm install @highchart-mcp/sdk
 import { HighchartClient } from '@highchart-mcp/sdk';
 
 // Connect to a running HTTP server (with optional API key)...
-const client = await HighchartClient.connectHttp('http://localhost:3000/mcp', {
+const client = await HighchartClient.connectHttp('https://mcp.highcharts-mcp.site/mcp', {
   apiKey: process.env.HIGHCHART_API_KEY,
 });
 

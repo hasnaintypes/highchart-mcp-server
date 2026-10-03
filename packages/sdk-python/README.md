@@ -35,7 +35,7 @@ async def main():
         )
 
     # ...or connect to a running HTTP server:
-    # async with HighchartClient.connect_http("http://localhost:3000/mcp", api_key="...") as client:
+    # async with HighchartClient.connect_http("https://mcp.highcharts-mcp.site/mcp", api_key="...") as client:
     #     ...
 
 asyncio.run(main())

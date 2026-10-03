@@ -162,7 +162,7 @@ and resource server for that flow, with sign-in delegated to GitHub — no
 passwords or credential database to manage:
 
 ```bash
-AUTH_STRATEGY=oauth PUBLIC_URL=https://charts.example.com \
+AUTH_STRATEGY=oauth PUBLIC_URL=https://mcp.highcharts-mcp.site \
   GITHUB_CLIENT_ID=... GITHUB_CLIENT_SECRET=...
 ```
 
@@ -186,7 +186,7 @@ AUTH_STRATEGY=oauth PUBLIC_URL=https://charts.example.com \
   authorization codes, pending sign-ins, and refresh tokens are held
   in-process (see `src/auth/oauth/store.ts`), the same tradeoff already made
   for HTTP sessions and rate limiting — fine for a single-instance deployment.
-- In Claude.ai, add a Custom Connector pointing at `https://charts.example.com/mcp`;
+- In Claude.ai, add a Custom Connector pointing at `https://mcp.highcharts-mcp.site/mcp`;
   in ChatGPT, add it as an MCP connector with the same URL. Both will discover
   `/.well-known/oauth-protected-resource`, self-register via `/register`, and
   redirect the user through `/authorize` → GitHub sign-in automatically.
@@ -217,7 +217,7 @@ Published client libraries (source in `packages/`, in-repo npm workspaces):
   ```
   ```ts
   import { HighchartClient } from '@highchart-mcp/sdk';
-  const client = await HighchartClient.connectHttp('http://localhost:3000/mcp', { apiKey });
+  const client = await HighchartClient.connectHttp('https://mcp.highcharts-mcp.site/mcp', { apiKey });
   const { options } = await client.createChart({ type: 'line', series: [{ data: [1, 2, 3] }] });
   ```
 - **Python:** [`highchart-mcp-sdk`](https://pypi.org/project/highchart-mcp-sdk/) ([source](./packages/sdk-python/README.md))
@@ -325,5 +325,8 @@ See [LICENSING.md](./LICENSING.md).
 
 - **Done:** full chart-type coverage, rendering/export, discovery, offline cache,
   metrics/health, HTTP auth + rate limiting, per-session transport, robustness
-  limits, Docker + CI, **CLI + JS/TS & Python SDKs**.
-- **Next (Phase 3):** optional AI / natural-language features.
+  limits, Docker + CI, **CLI + JS/TS & Python SDKs**, MCP `image` content for
+  svg/png renders.
+- **Next — candidate ideas, not implemented:** natural-language → chart config,
+  AI chart-type suggestions/auto-correction, dashboards/batch export. See
+  [docs/roadmap.md](./docs/roadmap.md) for the full list.
