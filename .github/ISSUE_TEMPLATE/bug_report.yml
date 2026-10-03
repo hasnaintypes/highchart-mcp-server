@@ -1,0 +1,44 @@
+name: Bug report
+description: Something isn't working as expected
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Minimal input (e.g. the `create_chart`/`render_chart` payload) that triggers it.
+      render: json
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Package version
+      placeholder: "@highchart-mcp/server@1.0.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: transport
+    attributes:
+      label: Transport
+      options:
+        - STDIO
+        - Streamable HTTP
+        - CLI
+        - JS/TS SDK
+        - Python SDK
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Server logs go to stderr — paste anything relevant.
+      render: shell

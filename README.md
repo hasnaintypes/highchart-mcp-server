@@ -240,6 +240,13 @@ npm run build --workspace @highchart-mcp/sdk   # build the JS/TS SDK
 npm test  --workspace @highchart-mcp/sdk       # test the JS/TS SDK
 ```
 
+## Contributing
+
+Contributions welcome — see [CONTRIBUTING.md](./CONTRIBUTING.md) for dev
+setup, PR expectations, and code style. Issues labeled
+[`good first issue`](https://github.com/hasnaintypes/highchart-mcp-server/labels/good%20first%20issue)
+are a good place to start; `help wanted` issues are open and unclaimed.
+
 ## Versioning & Publishing
 
 All three published packages are versioned independently with

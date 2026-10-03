@@ -1,0 +1,23 @@
+name: Feature request
+description: Propose a new chart type, tool, or capability
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What's the problem or gap?
+      description: What can't you do today that you'd like to?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed approach
+      description: How would this work? Point at relevant files/families if you know the codebase (see CLAUDE.md).
+    validations:
+      required: false
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Any existing tool/workaround that's close but not quite enough.
