@@ -229,10 +229,11 @@ describe('MCP Server Integration', () => {
       });
 
       expect(result.isError).toBeFalsy();
-      const content = result.content as Array<{ type: string; text: string }>;
-      expect(content).toHaveLength(1);
+      const content = result.content as Array<{ type: string; text?: string; mimeType?: string }>;
+      expect(content).toHaveLength(2);
+      expect(content[0]).toMatchObject({ type: 'image', mimeType: 'image/svg+xml' });
 
-      const parsed = JSON.parse(content[0]!.text);
+      const parsed = JSON.parse(content.find((c) => c.type === 'text')!.text!);
       expect(parsed.config).toEqual(chartOptions);
       expect(parsed.format).toBe('svg');
       expect(parsed.data).toBe('<svg>mock</svg>');
@@ -250,8 +251,9 @@ describe('MCP Server Integration', () => {
       });
 
       expect(result.isError).toBeFalsy();
-      const content = result.content as Array<{ type: string; text: string }>;
-      const parsed = JSON.parse(content[0]!.text);
+      const content = result.content as Array<{ type: string; text?: string; data?: string; mimeType?: string }>;
+      expect(content[0]).toEqual({ type: 'image', mimeType: 'image/png', data: 'bW9ja2Jhc2U2NA==' });
+      const parsed = JSON.parse(content.find((c) => c.type === 'text')!.text!);
       expect(parsed.format).toBe('png');
       expect(parsed.data).toBe('bW9ja2Jhc2U2NA==');
     });
@@ -275,8 +277,8 @@ describe('MCP Server Integration', () => {
       });
 
       expect(result.isError).toBeFalsy();
-      const content = result.content as Array<{ type: string; text: string }>;
-      const parsed = JSON.parse(content[0]!.text);
+      const content = result.content as Array<{ type: string; text?: string }>;
+      const parsed = JSON.parse(content.find((c) => c.type === 'text')!.text!);
       expect(parsed.config).toEqual(chartOptions);
     });
 
@@ -348,8 +350,9 @@ describe('MCP Server Integration', () => {
       });
 
       expect(result.isError).toBeFalsy();
-      const content = result.content as Array<{ type: string; text: string }>;
-      const parsed = JSON.parse(content[0]!.text);
+      const content = result.content as Array<{ type: string; text?: string; mimeType?: string }>;
+      expect(content[0]).toMatchObject({ type: 'image', mimeType: 'image/svg+xml' });
+      const parsed = JSON.parse(content.find((c) => c.type === 'text')!.text!);
       expect(parsed.config).toEqual(chartOptions);
       expect(parsed.format).toBe('svg');
       expect(parsed.data).toBe('<svg>mock</svg>');
@@ -367,8 +370,9 @@ describe('MCP Server Integration', () => {
       });
 
       expect(result.isError).toBeFalsy();
-      const content = result.content as Array<{ type: string; text: string }>;
-      const parsed = JSON.parse(content[0]!.text);
+      const content = result.content as Array<{ type: string; text?: string; data?: string; mimeType?: string }>;
+      expect(content[0]).toEqual({ type: 'image', mimeType: 'image/png', data: 'bW9ja2Jhc2U2NA==' });
+      const parsed = JSON.parse(content.find((c) => c.type === 'text')!.text!);
       expect(parsed.format).toBe('png');
       expect(parsed.data).toBe('bW9ja2Jhc2U2NA==');
     });
