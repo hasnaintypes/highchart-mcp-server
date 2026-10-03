@@ -26,9 +26,6 @@ build/
 .agents/
 .claude/
 
-# Local planning + docs (local-only, not published)
-roadmap-phase-2/
-docs/
 
 # Highcharts export cache + local render output
 .hc-cache/
@@ -84,3 +81,5 @@ jspm_packages/
 
 # Yarn Integrity file
 .yarn-integrity
+.vercel
+.env*
