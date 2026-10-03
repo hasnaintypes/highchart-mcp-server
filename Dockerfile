@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # ---------- Build stage ----------
-FROM node:20-bookworm AS builder
+FROM node:22-bookworm AS builder
 WORKDIR /app
 
 # Install all deps (incl. dev) for the TypeScript build.
@@ -13,7 +13,7 @@ COPY src ./src
 RUN npm run build
 
 # ---------- Runtime stage ----------
-FROM node:20-bookworm-slim AS runtime
+FROM node:22-bookworm-slim AS runtime
 
 # Use the distro Chromium (smaller than Puppeteer's download) and skip the
 # Puppeteer browser download during npm install.

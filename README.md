@@ -49,7 +49,7 @@ VS Code, etc.) over **STDIO** or **Streamable HTTP**.
 
 ## Install
 
-Requires **Node.js 20+**.
+Requires **Node.js 22+**.
 
 **From npm** (published package — no clone needed):
 

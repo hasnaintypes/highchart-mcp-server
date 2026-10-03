@@ -72,5 +72,5 @@ Note: there is no `src/validation/` directory — validation lives in
 - **Zod v4** (`zod@^4.3.6`) for schema validation — note API differences from Zod v3
 - **MCP SDK:** `@modelcontextprotocol/sdk` for server implementation
 - **Vitest** for testing — native ESM + TypeScript support, Jest-compatible API
-- **Node.js 20+** (CI and the Docker image use Node 20)
+- **Node.js 22+** (CI and the Docker image use Node 22; required by `highcharts-export-server` v6's `jsdom`/`undici` dependency chain)
 - **Rendering:** `highcharts-export-server` v5 (async API: `setOptions` → `initExport(options)` → `startExport(settings, cb)`), headless Chromium via Puppeteer
